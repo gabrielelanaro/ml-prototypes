@@ -1,5 +1,8 @@
+import matplotlib.pyplot as plt
 import numpy as np
+import tensorflow as tf
 
+from PIL import Image
 from tensorflow.python.keras.preprocessing import image as kp_image
 
 
@@ -8,17 +11,19 @@ def load_image(img_path: str, max_size: int = 512) -> np.array:
 
     img_path: The path of the image
     max_size: The maximum size of the image
+
+    The returned image is represented as an array of floating point
+    numbers between 0 and 255.
     """
     img = Image.open(img_path)
     longest_size = max(img.size)
-    scale = max_dim / longest_size
+    scale = max_size / longest_size
 
     new_width = round(img.size[0] * scale)
     new_height = round(img.size[1] * scale)
-    img.resize(new_width, new_height, Image.ANTIALIAS)
 
+    img = img.resize((new_width, new_height), Image.ANTIALIAS)
     img = kp_image.img_to_array(img)
-    img = np.expand_dims(img, axis=0)
     return img
 
 
