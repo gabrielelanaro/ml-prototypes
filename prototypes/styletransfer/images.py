@@ -28,26 +28,22 @@ def load_image(img_path: str, max_size: int = 512) -> np.array:
 
 
 def show_image(img_array: np.array, title: str = None) -> None:
+    assert_rgb(img_array)
     out = out.astype("uint8")
     if title is not None:
         plt.title(title)
     plt.imshow(out)
 
 
-def process_vgg(img_array: np.array):
+def process_vgg(img_array: np.array) -> np.array:
+    assert_rgb(img_array)
+    img_array = np.expand_dims(img_array, axis=0)
     return tf.keras.applications.vgg19.preprocess_input(img_array)
 
 
-def deprocess_vgg(img_array: np.array):
+def deprocess_vgg(img_array: np.array) -> np.array:
+    assert_rgb(img_array)
     x = img_array.copy()
-    if len(x.shape) == 4:
-        x = np.squeeze(x, 0)
-    assert len(x.shape) == 3, (
-        "Input to deprocess image must be an image of "
-        "dimension [1, height, width, channel] or [height, width, channel]"
-    )
-    if len(x.shape) != 3:
-        raise ValueError("Invalid input to deprocessing image")
 
     # perform the inverse of the preprocessing step
     x[:, :, 0] += 103.939
@@ -57,3 +53,15 @@ def deprocess_vgg(img_array: np.array):
 
     x = np.clip(x, 0, 255).astype("uint8")
     return x
+
+
+def assert_rgb(img_array: np.array):
+    """Check if an image is rgb format"""
+    assert img_array.shape[-1] == 3, "Image not in rgb format. Last dimension is not 3"
+    assert len(img_array.shape) == 3
+
+
+def assert_rgb_batch(img_array: np.array):
+    """Check if an image is in rgb and batch"""
+    assert img_array.shape[-1] == 3
+    assert len(img_array.shape) == 4
