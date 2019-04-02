@@ -1,20 +1,24 @@
 """Model for neural style transfer."""
 import tensorflow as tf
+import numpy as np
+
+from typing import Tuple
 
 from tensorflow.python.keras import models
 from tensorflow.python.keras import losses
 from tensorflow.python.keras import layers
 from tensorflow.python.keras import backend as K
 
+from .images import process_vgg_batch
 
 
 class StyleTransfer:
     def __init__(self):
         # Content layer where will pull our feature maps
-        content_layers = ["block5_conv2"]
-        
+        self._content_layers = ["block5_conv2"]
+
         # Style layer we are interested in
-        style_layers = [
+        self._style_layers = [
             "block1_conv1",
             "block2_conv1",
             "block3_conv1",
@@ -22,12 +26,9 @@ class StyleTransfer:
             "block5_conv1",
         ]
 
-        num_content_layers = len(content_layers)
-        num_style_layers = len(style_layers)
+        self._model = self._make_keras(self._style_layers, self._content_layers)
 
-        self._model = self._make_keras()
-
-    def _make_keras(self style_layers, content_layers) -> models.Model:
+    def _make_keras(self, style_layers, content_layers) -> models.Model:
         # Returns keras model our model with access to intermediate layers.
         #
         # This function will load the VGG19 model and access the intermediate layers.
@@ -61,7 +62,19 @@ class StyleTransfer:
             tf.square(gram_style - gram_target)
         )  # / (4. * (channels ** 2) * (width * height) ** 2)
 
-    def get_feature_representations(self, content_path, style_path):
+    def feature_representations(
+        self, content_img: np.array, style_img: np.array
+    ) -> Tuple[tf.Tensor, tf.Tensor]:
+
+        content_rep, style_rep = self.feature_representations_batch(
+            np.expand_dims(content_img, 0), np.expand_dims(style_img, 0)
+        )
+
+        return content_rep[0], style_rep[0]
+
+    def feature_representations_batch(
+        self, content_img_batch: np.array, style_img_batch: np.array
+    ) -> Tuple[tf.Tensor, tf.Tensor]:
         """Helper function to compute our content and style feature representations.
 
         This function will simply load and preprocess both the content and style 
@@ -76,12 +89,14 @@ class StyleTransfer:
         Returns:
             returns the style features and the content features. 
         """
-        # Load our images in
-        content_image = load_and_process_img(content_path)
-        style_image = load_and_process_img(style_path)
-        # batch compute content and style features
-        style_outputs = self._model(style_image)
-        content_outputs = self._model(content_image)
+
+        content_img_batch = self._process_img_batch(content_img_batch)
+        style_img_batch = self._process_img_batch(style_img_batch)
+
+        style_outputs = self._model(style_img_batch)
+        content_outputs = self._model(content_img_batch)
+
+        num_style_layers = len(self._style_layers)
 
         # Get the style and content feature representations from our model
         style_features = [
@@ -92,8 +107,12 @@ class StyleTransfer:
         ]
         return style_features, content_features
 
+    def _process_img_batch(self, img_batch):
+        # Takes a numpy image and makes it into an image processed to be ready for vgg
+        return tf.convert_to_tensor(process_vgg_batch(img_batch), tf.float32)
 
-def gram_matrix(input_tensor: tf.Tensor):
+
+def gram_matrix(input_tensor: tf.Tensor) -> tf.Tensor:
     # We make the image channels first
     channels = int(input_tensor.shape[-1])
     a = tf.reshape(input_tensor, [-1, channels])
