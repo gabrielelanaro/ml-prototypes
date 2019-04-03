@@ -10,4 +10,3 @@ def test_load_image():
 
     assert isinstance(data, np.ndarray)
     assert data.shape == (341, 512, 3)
-

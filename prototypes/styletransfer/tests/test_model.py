@@ -18,7 +18,6 @@ def test_model():
     model = StyleTransfer()
 
     style_rep, content_rep = model.feature_representations(content_img, style_img)
-
     assert isinstance(content_rep, list)
     assert isinstance(style_rep, list)
 

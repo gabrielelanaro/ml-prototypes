@@ -156,11 +156,11 @@ class StyleTransfer:
         self, content_img: np.array, style_img: np.array
     ) -> Tuple[tf.Tensor, tf.Tensor]:
 
-        content_rep, style_rep = self.feature_representations_batch(
+        style_rep, content_rep = self.feature_representations_batch(
             content_img, style_img
         )
 
-        return content_rep, style_rep
+        return style_rep, content_rep
 
     def feature_representations_batch(
         self, content_img_batch: np.array, style_img_batch: np.array
@@ -277,27 +277,27 @@ class StyleTransfer:
 
     def _compute_loss(
         self,
-        loss_weights: List,
+        loss_weights: List[float],
         init_image: tfe.Variable,
-        gram_style_features: List,
-        content_features: List,
+        gram_style_features: List[tf.Tensor],
+        content_features: List[tf.Tensor],
     ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
         """This function will compute the loss total loss.
-    
-      Arguments:
-        loss_weights: The weights of each contribution of each loss function. 
-          (style weight, content weight)
-        init_image: Our initial base image. This image is what we are updating with 
-          our optimization process. We apply the gradients wrt the loss we are 
-          calculating to this image.
-        gram_style_features: Precomputed gram matrices corresponding to the 
-          defined style layers of interest.
-        content_features: Precomputed outputs from defined content layers of 
-          interest.
 
-      Returns:
-        returns the total loss, style loss, content loss
-      """
+        Arguments:
+            loss_weights: The weights of each contribution of each loss function. 
+            (style weight, content weight)
+            init_image: Our initial base image. This image is what we are updating with 
+            our optimization process. We apply the gradients wrt the loss we are 
+            calculating to this image.
+            gram_style_features: Precomputed gram matrices corresponding to the 
+            defined style layers of interest.
+            content_features: Precomputed outputs from defined content layers of 
+            interest.
+
+        Returns:
+            returns the total loss, style loss, content loss
+        """
         style_weight, content_weight = loss_weights
 
         # Feed our init image through our model. This will give us the content and
