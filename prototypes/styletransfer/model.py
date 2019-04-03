@@ -67,11 +67,11 @@ class StyleTransfer:
         self, content_img: np.array, style_img: np.array
     ) -> Tuple[tf.Tensor, tf.Tensor]:
 
-        content_rep, style_rep = self.feature_representations_batch(
+        style_rep, content_rep = self.feature_representations_batch(
            content_img, style_img
         )
 
-        return content_rep, style_rep
+        return style_rep, content_rep
 
     def feature_representations_batch(
         self, content_img_batch: np.array, style_img_batch: np.array
