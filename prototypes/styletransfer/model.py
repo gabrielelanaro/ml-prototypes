@@ -113,7 +113,7 @@ class StyleTransfer:
         return tf.convert_to_tensor(process_vgg(img_batch), tf.float32)
 
     def _compute_loss(
-        self, loss_weights: List, init_image: tfe.Variable, gram_style_features: List, content_features: List
+        self, loss_weights: List[float], init_image: tfe.Variable, gram_style_features: List[tf.Tensor], content_features: List[tf.Tensor]
         ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
       """This function will compute the loss total loss.
     

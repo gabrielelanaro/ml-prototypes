@@ -18,8 +18,8 @@ def test_model():
 
     style_rep, content_rep = model.feature_representations(content_img, style_img)
     
-    assert isinstance(content_rep, List)
-    assert isinstance(style_rep, List)
+    assert isinstance(content_rep, list)
+    assert isinstance(style_rep, list)
     
     init_img = model._process_img_batch(init_img)
     init_img = tfe.Variable(init_img, dtype=tf.float32)
@@ -28,6 +28,6 @@ def test_model():
     loss_weights = (0.5, 0.5)
     losses = model._compute_loss(loss_weights, init_img, gram_style_features, content_rep)
     
-    assert isinstance(losses, Tuple)
+    assert isinstance(losses, tuple)
     assert isinstance(losses[0], tf.Tensor)
 
