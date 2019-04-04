@@ -116,7 +116,7 @@ class StyleTransfer:
             layer.trainable = False
 
         # Get the style and content feature representations (from our specified intermediate layers)
-        style_features, content_features = self.feature_representations(
+        content_features, style_features = self.feature_representations(
             content_img, style_img
         )
         gram_style_features = [
@@ -124,7 +124,9 @@ class StyleTransfer:
         ]
 
         # Set initial image
-        init_image = tfe.Variable(content_img, dtype=tf.float32)
+        # TODO(glanaro): is it correct to preprocess or we don't really care?
+        init_img = self._process_img(content_img)
+        init_image = tfe.Variable(init_img, dtype=tf.float32)
 
         # Create our optimizer
         opt = tf.train.AdamOptimizer(learning_rate=5, beta1=0.99, epsilon=1e-1)
@@ -157,13 +159,13 @@ class StyleTransfer:
             if loss < best_loss:
                 # Update best loss and best image from total loss.
                 best_loss = loss
-                best_img = deprocess_vgg(init_image.numpy())
+                best_img = deprocess_vgg(init_image.numpy()[0])
 
             if i % display_interval == 0:
                 start_time = time.time()
 
             # Use the .numpy() method to get the concrete numpy array
-            plot_img = init_image.numpy()
+            plot_img = init_image.numpy()[0]
             plot_img = deprocess_vgg(plot_img)
 
             yield StyleTransferResult(
@@ -263,10 +265,12 @@ class StyleTransfer:
         content_features: tf.Tensor,
     ):
         with tf.GradientTape() as tape:
-            total_loss, style_loss, content_loss = self._loss(
+            all_loss = self._loss(
                 loss_weights, init_image, style_features, content_features
             )
-        return tape.gradient(total_loss, init_image)
+
+        total_loss = all_loss[0]
+        return tape.gradient(total_loss, init_image), all_loss
 
 
 def gram_matrix(input_tensor: tf.Tensor) -> tf.Tensor:

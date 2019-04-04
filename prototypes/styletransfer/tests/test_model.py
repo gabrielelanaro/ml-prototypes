@@ -52,7 +52,6 @@ def test_run_styletransfer():
     style_img = _sample_img(512)
 
     model = StyleTransfer()
-    content_rep, style_rep = model.feature_representations(content_img, style_img)
 
     for st in model.run_style_transfer(content_img, style_img, num_iterations=10):
         assert isinstance(st.image, np.ndarray)
