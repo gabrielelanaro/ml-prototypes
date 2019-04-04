@@ -2,6 +2,8 @@
 import tensorflow as tf
 import numpy as np
 import time
+import enum
+import scipy
 
 from typing import NamedTuple, Tuple, List, Iterator
 
@@ -14,6 +16,11 @@ from .images import process_vgg, deprocess_vgg
 tf.enable_eager_execution()
 
 
+class InitType(enum.Enum):
+    RANDOM = "random"
+    CONTENT = "content"
+
+
 class StyleTransferResult(NamedTuple):
     image: np.array
     iteration_no: int
@@ -24,7 +31,13 @@ class StyleTransferResult(NamedTuple):
 
 
 class StyleTransfer:
-    def __init__(self):
+    def __init__(self, init_image_type: InitType = InitType.RANDOM):
+        """Applies style transfer to an image.
+
+        Parameters:
+        - init_image_type: specifies how to initialize the style transfer.
+          Either using the original content image, or at random.
+        """
         # Content layer where will pull our feature maps
         self._content_layers = ["block5_conv2"]
 
@@ -40,6 +53,9 @@ class StyleTransfer:
         self._num_content_layers = len(self._content_layers)
 
         self._model = self._make_keras(self._style_layers, self._content_layers)
+
+        # Configurable option
+        self.init_image_type = init_image_type
 
     def _make_keras(self, style_layers, content_layers) -> models.Model:
         # Returns keras model our model with access to intermediate layers.
@@ -119,10 +135,10 @@ class StyleTransfer:
             gram_matrix(style_feature) for style_feature in style_features
         ]
 
-        # Set initial image
-        # TODO(glanaro): is it correct to preprocess or we don't really care?
-        init_img = self._process_img(content_img)
-        init_image = tfe.Variable(init_img, dtype=tf.float32)
+        # Set initial image.
+        init_image = self._init_image(
+            content_img, from_random=self.init_image_type == InitType.RANDOM
+        )
 
         # Create our optimizer
         opt = tf.train.AdamOptimizer(learning_rate=5, beta1=0.99, epsilon=1e-1)
@@ -155,6 +171,8 @@ class StyleTransfer:
             if loss < best_loss:
                 # Update best loss and best image from total loss.
                 best_loss = loss
+                # TODO: should we return best loss and best image or should we let
+                # the code do that?
                 best_img = deprocess_vgg(init_image.numpy()[0])
 
             if i % display_interval == 0:
@@ -173,9 +191,26 @@ class StyleTransfer:
                 elapsed_time_sec=time.time() - start_time,
             )
 
+    def _init_image(
+        self, content_img: np.array, from_random: bool = False
+    ) -> tfe.Variable:
+        """
+        initializes the image for the optimization process.
+        """
+        if not from_random:
+            # Since in the loss function we will compare the activations
+            # we need to preprocess the init_img the same way as the other image as it will
+            # induce some normalizations.
+            init_img = self._process_img(content_img)
+        else:
+            init_img = np.random.uniform(0, 255, size=content_img.shape).astype("uint8")
+            init_img = scipy.ndimage.filters.median_filter(init_img, [8, 8, 1])
+            init_img = self._process_img(init_img)
+        return tfe.Variable(init_img, dtype=tf.float32)
+
     def _process_img(self, img):
         # Takes a numpy image and makes it into an image processed to be ready for vgg
-        return tf.convert_to_tensor(process_vgg(img), tf.float32)
+        return tf.convert_to_tensor(process_vgg(img.astype("float32")), tf.float32)
 
     def _loss(
         self,

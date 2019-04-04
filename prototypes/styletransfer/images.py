@@ -29,10 +29,10 @@ def load_image(img_path: str, max_size: int = 512) -> np.array:
 
 def show_image(img_array: np.array, title: str = None) -> None:
     assert_rgb(img_array)
-    out = out.astype("uint8")
+    img_array = img_array.astype("uint8")
     if title is not None:
         plt.title(title)
-    plt.imshow(out)
+    plt.imshow(img_array)
 
 
 def process_vgg(img_array: np.array) -> np.array:
