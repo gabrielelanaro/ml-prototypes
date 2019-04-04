@@ -17,7 +17,7 @@ def test_model():
 
     model = StyleTransfer()
 
-    style_rep, content_rep = model.feature_representations(content_img, style_img)
+    content_rep, style_rep = model.feature_representations(content_img, style_img)
     assert isinstance(content_rep, list)
     assert isinstance(style_rep, list)
 
@@ -34,14 +34,14 @@ def test_model_loss():
 
     content_rep, style_rep = model.feature_representations(content_img, style_img)
 
-    init_img = model._process_img_batch(init_img)
+    init_img = model._process_img(init_img)
     init_img = tfe.Variable(init_img, dtype=tf.float32)
 
     gram_style_features = [gram_matrix(style_feature) for style_feature in style_rep]
     loss_weights = (0.5, 0.5)
-    losses = model._compute_loss(
-        loss_weights, init_img, gram_style_features, content_rep
-    )
+
+    print(init_img.shape)
+    losses = model._loss(loss_weights, init_img, gram_style_features, content_rep)
 
     assert isinstance(losses, tuple)
     assert isinstance(losses[0], tf.Tensor)

@@ -35,14 +35,10 @@ def show_image(img_array: np.array, title: str = None) -> None:
     plt.imshow(out)
 
 
-def process_vgg_batch(img_array: np.array) -> np.array:
-    return tf.keras.applications.vgg19.preprocess_input(img_array)
-
-
 def process_vgg(img_array: np.array) -> np.array:
     assert_rgb(img_array)
     img_array = np.expand_dims(img_array, axis=0)
-    return process_vgg_batch(img_array)
+    return tf.keras.applications.vgg19.preprocess_input(img_array)
 
 
 def deprocess_vgg(img_array: np.array) -> np.array:
