@@ -3,15 +3,11 @@ import tensorflow as tf
 import numpy as np
 import time
 
-from typing import NamedTuple, Tuple, List
+from typing import NamedTuple, Tuple, List, Iterator
 
 import tensorflow.contrib.eager as tfe
 
 from tensorflow.python.keras import models
-from tensorflow.python.keras import losses
-from tensorflow.python.keras import layers
-from tensorflow.python.keras import backend as K
-import tensorflow.contrib.eager as tfe
 
 from .images import process_vgg, deprocess_vgg
 
@@ -109,7 +105,7 @@ class StyleTransfer:
         num_iterations=1000,
         content_weight=1e3,
         style_weight=1e-2,
-    ):
+    ) -> Iterator[StyleTransferResult]:
         # We don't need to (or want to) train any layers of our model, so we set their
         # trainable to false.
         for layer in self._model.layers:
