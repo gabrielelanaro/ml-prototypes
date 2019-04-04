@@ -29,20 +29,16 @@ def load_image(img_path: str, max_size: int = 512) -> np.array:
 
 def show_image(img_array: np.array, title: str = None) -> None:
     assert_rgb(img_array)
-    out = out.astype("uint8")
+    img_array = img_array.astype("uint8")
     if title is not None:
         plt.title(title)
-    plt.imshow(out)
-
-
-def process_vgg_batch(img_array: np.array) -> np.array:
-    return tf.keras.applications.vgg19.preprocess_input(img_array)
+    plt.imshow(img_array)
 
 
 def process_vgg(img_array: np.array) -> np.array:
     assert_rgb(img_array)
     img_array = np.expand_dims(img_array, axis=0)
-    return process_vgg_batch(img_array)
+    return tf.keras.applications.vgg19.preprocess_input(img_array)
 
 
 def deprocess_vgg(img_array: np.array) -> np.array:
