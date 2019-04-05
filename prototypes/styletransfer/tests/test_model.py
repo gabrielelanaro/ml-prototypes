@@ -40,7 +40,6 @@ def test_model_loss():
     gram_style_features = [gram_matrix(style_feature) for style_feature in style_rep]
     loss_weights = (0.5, 0.5)
 
-    print(init_img.shape)
     losses = model._loss(loss_weights, init_img, gram_style_features, content_rep)
 
     assert isinstance(losses, tuple)
