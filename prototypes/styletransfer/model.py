@@ -120,17 +120,16 @@ class StyleTransfer:
         style_img: np.array,
         loss_weights: Tuple[float],
         init_img: tfe.Variable
-        ) -> tf.Tensor:
+        ) -> float:
 
         content_rep, style_rep = self.feature_representations(content_img, style_img)
         gram_style_features = [gram_matrix(style_feature) for style_feature in style_rep]
         losses = self._loss(loss_weights, init_img, gram_style_features, content_rep)
-
-        # TODO: of course this is not ok.
-        # 1) How to prevent division by 0? Add very small number to denominator?
-        # 2) What if the numerator is zero? If number is very small maybe we default to 1?
-        # 3) I'd rather return a float, but can't find a neat way to convert a tf.Tensor to float
-        return losses[2]/losses[1]
+        
+        content = float(losses[2].numpy()) + 1.
+        style = float(losses[1].numpy()) + 1.
+        
+        return content/style
 
     def run_style_transfer(
         self,
@@ -165,7 +164,7 @@ class StyleTransfer:
         c2s = self._estimate_content2weight(content_img, style_img, loss_weights, init_image)
 
         # update weights
-        loss_weights = (1, c2s)
+        loss_weights = (1.0, c2s)
 
         # Create our optimizer
         opt = tf.train.AdamOptimizer(learning_rate=5, beta1=0.99, epsilon=1e-1)
