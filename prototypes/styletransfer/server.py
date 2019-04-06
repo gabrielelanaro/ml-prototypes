@@ -1,12 +1,14 @@
-from tornado.websocket import WebSocketHandler
-from tornado.ioloop import IOLoop
-
-from .model import StyleTransfer, StyleTransferResult
-import time
 import enum
 import json
 
 import numpy as np
+
+from tornado.websocket import WebSocketHandler
+from tornado.ioloop import IOLoop
+
+
+from .async_utils import async_next, AsyncStopIteration
+from .model import StyleTransfer, StyleTransferResult
 
 
 class InvalidTransition(Exception):
@@ -45,6 +47,31 @@ class StyleTransferController:
         await self._set_and_send_state(State.MODEL_LOADED)
 
     async def request_image(self, img):
+        if self.state != State.MODEL_LOADED:
+            raise InvalidTransition()
+
+        # We can't run a for loop because we risk of blocking everything
+        # TODO: this could be converted to an async for loop by creating an
+        # asynchronous iterator, which may not be worth the time (just syntactinc sugar)
+        loop = IOLoop.current()
+
+        iterator = iter(self._model.run_style_transfer(img, img, num_iterations=2))
+        while True:
+            await self._set_and_send_state(State.START_ITERATION)
+
+            try:
+                style_results: StyleTransferResult = await loop.run_in_executor(
+                    None, async_next, iterator
+                )
+            except AsyncStopIteration:
+                await self._set_and_send_state(State.END)
+                break
+
+            await self._set_and_send_state(
+                State.END_ITERATION, {"iteration": style_results.iteration_no}
+            )
+
+    async def request_image_old(self, img):
         if self.state != State.MODEL_LOADED:
             raise InvalidTransition()
 
@@ -88,15 +115,19 @@ class StyleTransferSocket(WebSocketHandler):
 
         message = json.loads(message)
 
+        if message["action"] == "close":
+            self.close()
         if message["action"] == "request_image":
             # TODO: Implement parsing code
             # img = _parse_image(message["image"])
             img = np.random.randint(0, 255, (512, 512, 3)).astype("float32")
             await self._controller.request_image(img)
+            self.close()
         else:
             raise Exception("invalid action")
 
     def on_close(self):
         # TODO: maybe add some logging here, and devise some way to stop the
         # iterations maybe
-        pass
+        print("Closing connection")
+
