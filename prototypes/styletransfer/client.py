@@ -1,13 +1,14 @@
 """Websocket client for testing"""
+import json
 
 from tornado.websocket import websocket_connect
 from tornado.ioloop import IOLoop
-from .server import State
-import json
+
+from .controller import State
 
 
 class WebsocketClient:
-    """Websocket client for testing our server"""
+    """Websocket client for testing our style transfer server"""
 
     def __init__(self, url: str):
         self.url = url
