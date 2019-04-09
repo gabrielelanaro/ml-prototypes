@@ -1,4 +1,12 @@
 import json, boto3
+# This file is to store a lambda handler which gets triggered by an Amazon API Gateway POST method.  
+# A lambda handler is a serverless python function executed each time the trigger is pulled. 
+# In this specific case, the function does the following:
+# 1) spins up a p2.xlarge EC2 instance with a custom deep learning AMI
+# 2) clones our transfer learning repo
+# 3) launches the server side websocket
+# 4) kills the EC2 after 10 minutes
+# 5) returns to the browser the instance_id of the spinned up EC2 instance  
 
 REGION = 'eu-west-1' # region to launch instance.
 AMI = "ami-0a961c5be1838f98e" # our custom AMI
