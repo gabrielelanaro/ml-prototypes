@@ -1,6 +1,7 @@
 """Websocket client for testing"""
 import json
 import os
+import textwrap
 
 import numpy as np
 from PIL import Image
@@ -14,7 +15,7 @@ from .controller import State
 
 OUTPUT_DIR = "./output"
 SAMPLE_STYLE_IMAGE = "prototypes/styletransfer/tests/MonetLookingForward.jpg"
-SAMPLE_CONTENT_IMAGE = "prototypes/styletransfer/tests/img_light.jpg"
+SAMPLE_CONTENT_IMAGE = "prototypes/styletransfer/tests/img_lights.jpg"
 
 
 class WebsocketClient:
@@ -28,19 +29,22 @@ class WebsocketClient:
 
         while True:
             msg = await self.ws.read_message()
-            print("Message received from server:\n#{}#".format(msg))
+            print(
+                textwrap.shorten("Message received from server:\n#{}#".format(msg), 100)
+            )
             if msg is None:
                 # Con nection is closed
                 print("Connection is closed")
                 break
 
             msg = json.loads(msg)
+
             if msg["state"] == State.MODEL_LOADED.value:
                 content_img = load_image(SAMPLE_CONTENT_IMAGE)
                 style_img = load_image(SAMPLE_STYLE_IMAGE)
                 msg = _request_image_message(content_img, style_img)
                 await self.ws.write_message(msg)
-            if msg["state"] == State.END_ITERATION.value:
+            elif msg["state"] == State.END_ITERATION.value:
                 # The model has completed an iteration and we handle it
                 _handle_end_iteration(msg)
             else:
@@ -56,7 +60,7 @@ def _handle_end_iteration(msg):
         os.mkdir(OUTPUT_DIR)
 
     with open(
-        os.path.join(OUTPUT_DIR, "image_{: 4d}.png".format(iteration)), "wb"
+        os.path.join(OUTPUT_DIR, "image_{:04d}.png".format(iteration)), "wb"
     ) as fd:
         image.save(fd, format="PNG")
 
@@ -66,8 +70,8 @@ def _request_image_message(content_img: np.ndarray, style_img: np.ndarray):
         {
             "action": "request_image",
             "data": {
-                "content_image": image_to_base64(content_img),
-                "style_image": image_to_base64(style_img),
+                "content_image": image_to_base64(content_img).decode(),
+                "style_image": image_to_base64(style_img).decode(),
             },
         }
     )

@@ -1,10 +1,15 @@
 import json
+import textwrap
 
 import numpy as np
 
 from tornado.websocket import WebSocketHandler
 
 from .controller import StyleTransferController
+from .serialization import base64_to_image, image_to_base64
+
+
+DEFAULT_ITERATIONS = 10
 
 
 class StyleTransferSocket(WebSocketHandler):
@@ -13,22 +18,26 @@ class StyleTransferSocket(WebSocketHandler):
         self._controller = StyleTransferController(self)
 
     async def open(self):
-        # TODO: We load the model once the connection is open
+        # We load the model once the connection is open
         # an alternative would be to make the websocket load the model later on.
+        print("Connection open")
         await self._controller.load_model()
 
     async def on_message(self, message):
-        print("Received message: {}".format(message))
+        print(textwrap.shorten("Received message: {}".format(message), width=100))
 
         message = json.loads(message)
 
         if message["action"] == "close":
             self.close()
         if message["action"] == "request_image":
-            # TODO: Implement parsing code
-            # img = _parse_image(message["image"])
-            img = np.random.randint(0, 255, (512, 512, 3)).astype("float32")
-            await self._controller.request_image(img)
+            data = message["data"]
+            content_img = base64_to_image(data["content_image"])
+            style_img = base64_to_image(data["style_image"])
+            iterations = data.get("iterations", DEFAULT_ITERATIONS)
+            await self._controller.request_image(
+                content_img, style_img, num_iterations=iterations
+            )
             self.close()
         else:
             raise Exception("invalid action")
