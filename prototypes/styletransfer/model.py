@@ -31,7 +31,7 @@ class StyleTransferResult(NamedTuple):
 
 
 class StyleTransfer:
-    def __init__(self, init_image_type: InitType = InitType.RANDOM):
+    def __init__(self, init_image_type: InitType = InitType.CONTENT):
         """Applies style transfer to an image.
 
         Parameters:
@@ -119,17 +119,19 @@ class StyleTransfer:
         content_img: np.array,
         style_img: np.array,
         loss_weights: Tuple[float],
-        init_img: tfe.Variable
-        ) -> float:
+        init_img: tfe.Variable,
+    ) -> float:
 
         content_rep, style_rep = self.feature_representations(content_img, style_img)
-        gram_style_features = [gram_matrix(style_feature) for style_feature in style_rep]
+        gram_style_features = [
+            gram_matrix(style_feature) for style_feature in style_rep
+        ]
         losses = self._loss(loss_weights, init_img, gram_style_features, content_rep)
-        
-        content = float(losses[2].numpy()) + 1.
-        style = float(losses[1].numpy()) + 1.
-        
-        return content/style
+
+        content = float(losses[2].numpy()) + 1.0
+        style = float(losses[1].numpy()) + 1.0
+
+        return content / style
 
     def run_style_transfer(
         self,
@@ -161,7 +163,9 @@ class StyleTransfer:
         loss_weights = (style_weight, content_weight)
 
         # Compute the content2style ratio to balance losses
-        c2s = self._estimate_content2weight(content_img, style_img, loss_weights, init_image)
+        c2s = self._estimate_content2weight(
+            content_img, style_img, loss_weights, init_image
+        )
 
         # update weights
         loss_weights = (1.0, c2s)

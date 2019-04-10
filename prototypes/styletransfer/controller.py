@@ -1,10 +1,13 @@
 import enum
 
+import numpy as np
+
 from tornado.ioloop import IOLoop
 from tornado.websocket import WebSocketHandler
 
 from .async_utils import async_next, AsyncStopIteration
 from .model import StyleTransfer, StyleTransferResult
+from .serialization import image_to_base64
 
 
 class InvalidTransition(Exception):
@@ -48,7 +51,9 @@ class StyleTransferController:
 
         await self._set_and_send_state(State.MODEL_LOADED)
 
-    async def request_image(self, img):
+    async def request_image(
+        self, content_img: np.ndarray, style_img: np.ndarray, num_iterations=10
+    ):
         if self.state != State.MODEL_LOADED:
             raise InvalidTransition()
         loop = IOLoop.current()
@@ -58,7 +63,9 @@ class StyleTransferController:
 
         # TODO: this could be converted to an `async for` loop by creating an
         # asynchronous iterator. However, it may not be worth the time (just syntactinc sugar)
-        iterator = self._model.run_style_transfer(img, img, num_iterations=2)
+        iterator = self._model.run_style_transfer(
+            content_img, style_img, num_iterations=num_iterations
+        )
 
         while True:
             await self._set_and_send_state(State.START_ITERATION)
@@ -72,7 +79,11 @@ class StyleTransferController:
                 break
 
             await self._set_and_send_state(
-                State.END_ITERATION, {"iteration": style_results.iteration_no}
+                State.END_ITERATION,
+                {
+                    "iteration": style_results.iteration_no,
+                    "image": image_to_base64(style_results.image).decode(),
+                },
             )
 
     async def _set_and_send_state(self, state: State, data=None):
