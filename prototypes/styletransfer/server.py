@@ -1,12 +1,12 @@
 import json
+import sys
 import textwrap
 
-import numpy as np
-
+from tornado.ioloop import IOLoop
 from tornado.websocket import WebSocketHandler
 
 from .controller import StyleTransferController
-from .serialization import base64_to_image, image_to_base64
+from .serialization import base64_to_image
 
 
 DEFAULT_ITERATIONS = 10
@@ -46,4 +46,8 @@ class StyleTransferSocket(WebSocketHandler):
         # TODO: maybe add some logging here, and devise some way to stop the
         # iterations maybe
         print("Closing connection")
+        loop = IOLoop.current()
+        loop.stop()
+        # Just to make sure there's no hanging tasks
+        sys.exit(0)
 
