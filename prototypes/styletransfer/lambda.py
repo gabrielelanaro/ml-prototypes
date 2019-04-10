@@ -49,7 +49,7 @@ def lambda_handler(event, context):
 
     instance_id = instance['Instances'][0]['InstanceId']
 
-    # Lines 54-57 are used to retrieve the public DNS of the EC2 instance
+    # Lines 58-61 are used to retrieve the public DNS of the EC2 instance
     # Lambda has spun up. This attribute is made available only when the 
     # machine switches to its RUNNING state, so not at boot time.
     # This section is commented as even if the code works as intented,
