@@ -49,14 +49,15 @@ def lambda_handler(event, context):
 
     instance_id = instance['Instances'][0]['InstanceId']
 
+    # Lines 54-57 are used to retrieve the public DNS of the EC2 instance
+    # Lambda has spun up. This attribute is made available only when the 
+    # machine switches to its RUNNING state, so not at boot time.
+    # This section is commented as even if the code works as intented,
+    # for unclear reasons, Lambda does not return the expected output
+
     #inst = boto3.resource('ec2', region_name=REGION).Instance(instance_id)
-
-    # Wait for the instance to enter the running state
     #inst.wait_until_running()
-
-    # Reload the instance attributes
     #inst.load()
-    #print(inst.public_dns_name)
-    #print(type(inst.public_dns_name))
+    #public_dns = inst.public_dns_name
 
     return format_response(f"instance_id: {instance_id}", 200)
