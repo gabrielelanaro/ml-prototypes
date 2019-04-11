@@ -43,11 +43,7 @@ class StyleTransferSocket(WebSocketHandler):
             raise Exception("invalid action")
 
     def on_close(self):
-        # TODO: maybe add some logging here, and devise some way to stop the
-        # iterations maybe
-        print("Closing connection")
+        print("Closing connection and stop the server")
         loop = IOLoop.current()
         loop.stop()
-        # Just to make sure there's no hanging tasks
-        sys.exit(0)
 
