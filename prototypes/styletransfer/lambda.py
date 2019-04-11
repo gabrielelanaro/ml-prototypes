@@ -47,8 +47,11 @@ def spin_up_ec2(ec2_object, instance_type, script):
             MinCount=1,
             MaxCount=1,
             KeyName="FraDeepLearn",
-            InstanceInitiatedShutdownBehavior="terminate",  # make shutdown in script terminate ec2
-            UserData=script,  # file to run on instance init.
+            SecurityGroups=[
+                "transfer-learning",
+            ],
+            InstanceInitiatedShutdownBehavior='terminate', # make shutdown in script terminate ec2
+            UserData=script # file to run on instance init.
         )
 
     except botocore.exceptions.ClientError:
@@ -66,7 +69,7 @@ def lambda_handler(event, context):
     git clone https://github.com/gabrielelanaro/ml-prototypes.git
     source activate tensorflow_p36
     cd ml-prototypes
-    shutdown -h +3
+    shutdown -h +10
     python -m prototypes.styletransfer.app --address=0.0.0.0 --port=8000
     shutdown -h now
     """
