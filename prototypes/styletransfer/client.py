@@ -47,6 +47,9 @@ class WebsocketClient:
             elif msg["state"] == State.END_ITERATION.value:
                 # The model has completed an iteration and we handle it
                 _handle_end_iteration(msg)
+            elif msg["state"] == State.END.value:
+                loop = IOLoop.current()
+                loop.stop()
             else:
                 print("Received an unhandled message {}".format(msg["state"]))
 
