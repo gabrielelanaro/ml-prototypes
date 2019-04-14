@@ -35,7 +35,7 @@ document.getElementById("st").onclick = function(){
 
 function openStyleTransferSocket(response) {
   var msg = JSON.parse(response);
-  var webSocketURL = "ws://" + msg.dns + ":8000/styletransfer"
+  var webSocketURL = "wss://" + msg.dns + ":8000/styletransfer"
   
   console.log("openWSConnection::Connecting to: " + webSocketURL);
   try {
