@@ -17,6 +17,10 @@ class StyleTransferSocket(WebSocketHandler):
         super().__init__(*args, **kwargs)
         self._controller = StyleTransferController(self)
 
+    def check_origin(self, origin):
+        # This method is used to allow/disallow connection from other servers
+        return True
+
     async def open(self):
         # We load the model once the connection is open
         # an alternative would be to make the websocket load the model later on.
