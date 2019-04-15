@@ -57,7 +57,9 @@ def deprocess_vgg(img_array: np.array) -> np.array:
 
 def assert_rgb(img_array: np.array):
     """Check if an image is rgb format"""
-    assert img_array.shape[-1] == 3, "Image not in rgb format. Last dimension is not 3"
+    assert (
+        img_array.shape[-1] == 3
+    ), "Image not in rgb format. Last dimension is not 3, {}".format(img_array.shape)
     assert len(img_array.shape) == 3
 
 

@@ -26,5 +26,10 @@ def base64_to_image(data: bytes) -> np.ndarray:
     b64_image = base64.b64decode(data)
     fd = BytesIO(b64_image)
     img = Image.open(fd)
-    return np.array(img).astype("float32")
+    img_data = np.array(img).astype("float32")
 
+    if img_data.shape[-1] == 4:
+        # We only support rgb
+        img_data = img_data[:, :, :3]
+
+    return img_data
