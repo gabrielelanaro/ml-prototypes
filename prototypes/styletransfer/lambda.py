@@ -62,8 +62,8 @@ def spin_up_ec2(ec2_object, instance_type, script):
 
 def lambda_handler(event, context):
 
-    body = json.loads(event["body"])
-
+    output = '{{"id":"{}", "type":"{}", "dns":"{}"}}'
+    
     init_script = f"""#!/bin/bash
     cd /home/ubuntu
     git clone https://github.com/gabrielelanaro/ml-prototypes.git
@@ -81,7 +81,7 @@ def lambda_handler(event, context):
 
     if not instance:
         return format_response(
-            f"id: 'limit exceeded', type: 'limit exceeded', dns: 'limit exceeded'", 200
+            output.format('limit exceeded', 'limit exceeded', 'limit exceeded'), 200
         )
 
     inst = boto3.resource("ec2", region_name=REGION).Instance(instance_id)
@@ -90,5 +90,5 @@ def lambda_handler(event, context):
     public_dns = inst.public_dns_name
 
     return format_response(
-        f"id: {instance_id}, type: {INSTANCE_TYPE}, dns: {public_dns}", 200
+        output.format(instance_id, INSTANCE_TYPE, public_dns), 200
     )

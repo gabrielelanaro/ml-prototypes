@@ -7,7 +7,7 @@ document.getElementById('inp').onchange = function(e) {
     img.src = URL.createObjectURL(this.files[0]);
   };
   function draw() {
-    var canvas = document.getElementById('canvas');
+    var canvas = document.getElementById('content_img');
     canvas.width = this.width;
     canvas.height = this.height;
     var ctx = canvas.getContext('2d');
@@ -17,20 +17,72 @@ document.getElementById('inp').onchange = function(e) {
     alert("The provided file couldn't be loaded as an Image media");
 };
 
-document.getElementById("genre").onclick = function(){
-    var canvas = document.getElementById("canvas")
-    var image = canvas.toDataURL()
-	  var inputData = {"data": image};
+document.getElementById("st").onclick = function(){
+    //var canvas = document.getElementById("content_img")
+    //var image = canvas.toDataURL()
+	  //var inputData = {"data": "pinging API"};
 
     $.ajax({
       url: API_ENDPOINT,
       type: 'POST',
       crossDomain: true,
-      data: JSON.stringify(inputData),
+      //data: JSON.stringify(inputData),
       dataType: 'json',
       contentType: "application/json",
-      success: function (response) {
-        document.getElementById("genreReturned").textContent = response;
-      },
+      success: openStyleTransferSocket,
   });
+}
+
+function openStyleTransferSocket(response) {
+  var msg = JSON.parse(response);
+  var webSocketURL = "wss://" + msg.dns + ":8000/styletransfer"
+  
+  console.log("openWSConnection::Connecting to: " + webSocketURL);
+  try {
+      webSocket = new WebSocket(webSocketURL);
+
+      webSocket.onopen = function(openEvent) {
+          console.log("WebSocket OPEN: " + JSON.stringify(openEvent, null, 4));
+      };
+
+      webSocket.onclose = function (closeEvent) {
+          console.log("WebSocket CLOSE: " + JSON.stringify(closeEvent, null, 4));
+      };
+
+      webSocket.onerror = function (errorEvent) {
+          console.log("WebSocket ERROR: " + JSON.stringify(errorEvent, null, 4));
+      };
+
+      webSocket.onmessage = function (messageEvent) {
+        if (messageEvent == null) {
+            webSocket.close()
+          }
+      
+        var msg = JSON.parse(messageEvent);
+        
+        switch(msg.state) {
+          case "model_loaded":
+            console.log("WebSocket STATE: " + msg.state);
+            var to_send = {
+                action: "request_image",  
+                data: {
+                    content_image: document.getElementById("content_img").toDataURL(),
+                    style_image: document.getElementById("style_img").toDataURL()
+                }
+              };
+            webSocket.send(JSON.stringify(to_send));
+            break;
+      
+          case "end_iteration":
+            console.log("WebSocket STATE: " + msg.state);
+            document.getElementById("iteration_img").src = msg.data.image;
+            break;
+      
+          default:
+            console.log("WebSocket MESSAGE: " + msg);
+        }
+      };
+  } catch (exception) {
+      console.error(exception);
+  }
 }

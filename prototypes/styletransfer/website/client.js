@@ -18,15 +18,15 @@ connection.onmessage = function(event) {
       var to_send = {
           action: "request_image",
           data: {
-              content_image: document.getElementById("content_image").toDataURL(),
-              style_image: document.getElementById("style_image").toDataURL()
+              content_image: document.getElementById("content_img").toDataURL(),
+              style_image: document.getElementById("style_img").toDataURL()
           }
         };
       connection.send(JSON.stringify(to_send));
       break;
 
     case "end_iteration":
-      document.getElementById("iteration_image").src = msg.data.image;
+      document.getElementById("iteration_img").src = msg.data.image;
       break;
 
     default:
