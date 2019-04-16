@@ -12,7 +12,6 @@ window.onload = function () {
   }
 
   document.getElementById("st").onclick = function () {
-
     $.ajax({
       url: API_ENDPOINT,
       type: 'POST',
@@ -25,81 +24,108 @@ window.onload = function () {
 
   function openStyleTransferSocket(response) {
     var msg = JSON.parse(response);
-    //var webSocketURL = "wss://" + msg.dns + ":8000/styletransfer"
-    var webSocketURL = "ws://localhost:8000/styletransfer"
+    // var webSocketURL = "ws://localhost:8000/styletransfer"
+    var webSocketURL = "ws://" + msg.dns + ":8000/styletransfer"
 
-    console.log("openWSConnection::Connecting to: " + webSocketURL);
-    try {
-      webSocket = new WebSocket(webSocketURL);
+    var maxWaitTime = 3 * 60 * 1000; // 3 minutes
+    var waitFor = 500;
+    var retryNo = 0;
+    var increaseBy = 1.05;
 
-      webSocket.onopen = function (openEvent) {
-        console.log("WebSocket OPEN: " + JSON.stringify(openEvent, null, 4));
-      };
+    function setupWebSocket() {
+      console.log("Websocket connecting to: " + webSocketURL);
+      var webSocket = new WebSocket(webSocketURL);
 
-      webSocket.onclose = function (closeEvent) {
-        console.log("WebSocket CLOSE: " + JSON.stringify(closeEvent, null, 4));
-      };
-
-      webSocket.onerror = function (errorEvent) {
-        console.log("WebSocket ERROR: " + JSON.stringify(errorEvent, null, 4));
-      };
-
-      webSocket.onmessage = function (messageEvent) {
-        if (messageEvent == null) {
-          webSocket.close()
-        }
-
-        console.log(messageEvent)
-        var msg = JSON.parse(messageEvent.data);
-        console.log(msg.state)
-
-        switch (msg.state) {
-          case "model_loaded":
-            console.log("WebSocket STATE: " + msg.state);
-            var to_send = {
-              action: "request_image",
-              data: {
-                content_image: base64FromCanvasId("content_img"),
-                style_image: base64FromCanvasId("style_img"),
-              }
-            };
-            webSocket.send(JSON.stringify(to_send));
-            break;
-
-          case "end_iteration":
-            console.log("WebSocket STATE: " + msg.state);
-            document.getElementById("iteration_img").src = "data:image/png;base64," + msg.data.image;
-            break;
-
-          default:
-            console.log("WebSocket MESSAGE: " + msg);
+      webSocket.onerror = function (event) {
+        console.log("There was an error connecting, retry no " + retryNo);
+        waitTime = waitFor * Math.pow(increaseBy, retryNo);
+        if (waitTime < maxWaitTime) {
+          // Reconnecting
+          retryNo += 1;
+          setTimeout(setupWebSocket, waitTime);
+        } else {
+          // Ok we give up and we invoke the handler's error callback instead.
+          webSocketHandler.onerror = function (e) { webSocketHandler.onerror(webSocket, e) };
         }
       };
-    } catch (exception) {
-      console.error(exception);
-    }
-  }
 
-  function base64FromCanvasId(canvas_id) {
-    return document.getElementById(canvas_id).toDataURL().split(',')[1];
-  }
-
-  function loadImageInCanvas(url, canvas) {
-    var img = $("<img />", {
-      src: url,
-      crossOrigin: "Anonymous",
-    }).load(draw).error(failed);
-
-    function draw() {
-      canvas.width = this.width;
-      canvas.height = this.height;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(this, 0, 0);
+      webSocket.onopen = function (e) { webSocketHandler.onopen(webSocket, e) };
+      webSocket.onclose = function (e) { webSocketHandler.onclose(webSocket, e) };
+      webSocket.onmessage = function (e) { webSocketHandler.onmessage(webSocket, e) };
     }
 
-    function failed() {
-      alert("The provided file couldn't be loaded as an Image media");
-    };
-
+    setupWebSocket();
   }
+
+}
+
+
+/**
+ * Collection of functions designed to handle the websockets events.
+ */
+var webSocketHandler = {
+  onopen: function (webSocket, openEvent) {
+    console.log("WebSocket OPEN: " + JSON.stringify(openEvent, null, 4));
+  },
+  onclose: function (webSocket, closeEvent) {
+    console.log("WebSocket CLOSE: " + JSON.stringify(closeEvent, null, 4));
+  },
+  onerror: function (webSocket, errorEvent) {
+    console.log("WebSocket ERROR: " + JSON.stringify(errorEvent, null, 4));
+  },
+  onmessage: function (webSocket, messageEvent) {
+    if (messageEvent == null) {
+      webSocket.close()
+    }
+
+    console.log(messageEvent)
+    var msg = JSON.parse(messageEvent.data);
+    console.log(msg.state)
+
+    switch (msg.state) {
+      case "model_loaded":
+        console.log("WebSocket STATE: " + msg.state);
+        var to_send = {
+          action: "request_image",
+          data: {
+            content_image: base64FromCanvasId("content_img"),
+            style_image: base64FromCanvasId("style_img"),
+          }
+        };
+        webSocket.send(JSON.stringify(to_send));
+        break;
+
+      case "end_iteration":
+        console.log("WebSocket STATE: " + msg.state);
+        document.getElementById("iteration_img").src = "data:image/png;base64," + msg.data.image;
+        break;
+
+      default:
+        console.log("WebSocket MESSAGE: " + msg);
+    }
+  }
+}
+
+
+function base64FromCanvasId(canvas_id) {
+  return document.getElementById(canvas_id).toDataURL().split(',')[1];
+}
+
+function loadImageInCanvas(url, canvas) {
+  var img = $("<img />", {
+    src: url,
+    crossOrigin: "Anonymous",
+  }).load(draw).error(failed);
+
+  function draw() {
+    canvas.width = this.width;
+    canvas.height = this.height;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(this, 0, 0);
+  }
+
+  function failed() {
+    alert("The provided file couldn't be loaded as an Image media");
+  };
+
 }
