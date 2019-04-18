@@ -10,18 +10,9 @@ import json, boto3, botocore
 # 5) returns to the browser the pulic DNS of the spinned up EC2 instance
 
 REGION = "eu-west-1"  # region to launch instance.
-AMI = "ami-0a961c5be1838f98e"  # our custom AMI
+AMI = "ami-0ac4506ffe115b721"  # our custom AMI
 available_instances = [
-    "g2.2xlarge",
-    "g2.8xlarge",
-    "g3.16xlarge",
-    "g3.4xlarge",
-    "g3.8xlarge",
-    "g3s.xlarge",
-    "p2.8xlarge",
     "p2.xlarge",
-    "p3.2xlarge",
-    "p3.8xlarge",
 ]
 
 EC2 = boto3.client("ec2", region_name=REGION)
@@ -46,7 +37,7 @@ def spin_up_ec2(ec2_object, instance_type, script):
             InstanceType=instance_type,
             MinCount=1,
             MaxCount=1,
-            KeyName="FraDeepLearn",
+            KeyName="GabKP",
             SecurityGroups=[
                 "transfer-learning",
             ],
@@ -63,16 +54,23 @@ def spin_up_ec2(ec2_object, instance_type, script):
 def lambda_handler(event, context):
 
     output = '{{"id":"{}", "type":"{}", "dns":"{}"}}'
-    
+    # Important to have no space    
     init_script = f"""#!/bin/bash
-    cd /home/ubuntu
-    git clone https://github.com/gabrielelanaro/ml-prototypes.git
-    source activate tensorflow_p36
-    cd ml-prototypes
-    shutdown -h +10
-    python -m prototypes.styletransfer.app --address=0.0.0.0 --port=8000
-    shutdown -h now
+cd /home/ubuntu
+cd ml-prototypes
+git pull
+shutdown -h +7
+# Necessary to being able to load all the necessary environment
+sudo -i -u ubuntu bash <<-EOF
+source ~/.bashrc
+source activate tensorflow_p36
+export PYTHONPATH=/home/ubuntu/ml-prototypes
+python -m prototypes.styletransfer.app --address=0.0.0.0 --port=8000
+EOF
+shutdown -h now
     """
+    
+
     for INSTANCE_TYPE in available_instances:
         instance = spin_up_ec2(EC2, INSTANCE_TYPE, init_script)
         if instance:

@@ -2,37 +2,48 @@
 <html>
 
 <head>
-   <h1>Style Transfer App</h1>
-   <link rel="stylesheet" href="styles.css">
-   <link href='https://fonts.googleapis.com/css?family=Lato:400,700' rel='stylesheet' type='text/css'>
+    <h1>Turn into an artist. Paint like a pro.</h1>
+    <link rel="stylesheet" href="styles.css">
+    <link href='https://fonts.googleapis.com/css?family=Lato:400,700' rel='stylesheet' type='text/css'>
 </head>
 
 <body>
-   <div class="dropdown">
-      <select id="style_choice">
-         <option value="">Please select</option>
-         <option value="1">First option</option>
-         <option value="2">Second option</option>
+    <div class="dropdown">
+        <select id="style_choice" class="dropbtn">
+         <div class="dropdown-content">
+         <option href="#" value="The_Scream.jpg">Select your style</option>
+         <option href="#" value="The_Scream.jpg">Munch, The Scream</option>
+         <option href="#" value="Kand1.jpeg">Kandinsky, Composition VII</option>
+         <option href="#" value="Kand2.png">Kandinsky, Composition VIII</option>
+         <option href="#" value="Monet.jpg">Monet, Wheatstacks (End of Summer)</option>
+         <option href="#" value="Picasso.png">Picasso, Guernica</option>
+         <option href="#" value="VanGogh.png">Van Gogh, Starry Night</option>
+      </div>
       </select>
-   </div>
-   <div class="style-image">
-      <canvas id="style_img" height="400"></canvas>
-   </div>
-   <h3>Choose an image to style</h3>
-   <div class="input-container">
-      <input type="file" value="Choose an image to style" id="inp" class="buttons" accept="image/*">
-      </br>
-      </br>
-      <canvas id="content_img" height="400"></canvas>
-      </br>
-      </br>
-      <input type="submit" value="Run Style Transfer" id="st" class="buttons">
-      </br>
-      </br>
-      <img id="iteration_img" height="400"></img>
-   </div>
-   <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.0/jquery.min.js"></script>
-   <script src="scripts.js"></script>
+    </div>
+    </br>
+    </br>
+    <div class="style-image">
+        <canvas id="style_img" height="300"></canvas>
+    </div>
+    <h3>Choose an image to style</h3>
+    <div class="input-container">
+        <input type="file" value="Choose an image to style" id="inp" class="buttons" accept="image/*">
+        </br>
+        </br>
+        <canvas id="content_img" height="300"></canvas>
+        </br>
+        </br>
+        <input type="submit" value="Run Style Transfer" id="st" class="buttons">
+        </br>
+        </br>
+        <span id="limit"></span>
+        </br>
+        </br>
+        <img id="iteration_img" height="300"></img>
+    </div>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.0/jquery.min.js"></script>
+    <script src="scripts.js"></script>
 </body>
 
 </html>
