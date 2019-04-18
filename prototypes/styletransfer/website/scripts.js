@@ -72,6 +72,10 @@ function openStyleTransferSocket(response) {
                     document.getElementById("limit").textContent = "Looking for a brush...";
                 } else if (retryNo < 25) {
                     document.getElementById("limit").textContent = "If only we found canvas and colors too...";
+                } else if (retryNo < 30) {
+                    document.getElementById("limit").textContent = "These lazy artists...";
+                } else if (retryNo < 35) {
+                    document.getElementById("limit").textContent = "Ok, this is getting quite time-consuming...";
                 } else { document.getElementById("limit").textContent = "Hold on tight! We are almost ready..."; }
                 setTimeout(setupWebSocket, waitTime);
             } else {
