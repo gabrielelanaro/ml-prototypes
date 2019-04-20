@@ -27,6 +27,7 @@ document.getElementById('inp').onchange = function(e) {
 
 document.getElementById("st").onclick = function() {
     document.getElementById("limit").textContent = "One second, please. Artists need time to focus and find inspiration...";
+    this.disabled = true;
     $.ajax({
         url: API_ENDPOINT,
         type: 'POST',
