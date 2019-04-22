@@ -27,6 +27,7 @@ document.getElementById('inp').onchange = function(e) {
 
 document.getElementById("st").onclick = function() {
     document.getElementById("limit").textContent = "One second, please. Artists need time to focus and find inspiration...";
+    this.disabled = true;
     $.ajax({
         url: API_ENDPOINT,
         type: 'POST',
@@ -115,6 +116,10 @@ var webSocketHandler = {
         console.log(msg.state)
 
         switch (msg.state) {
+            case "model_loading":
+                document.getElementById("limit").textContent = "Our AWS artist is getting started!";
+                break;
+
             case "model_loaded":
                 console.log("WebSocket STATE: " + msg.state);
                 var to_send = {
@@ -125,9 +130,11 @@ var webSocketHandler = {
                     }
                 };
                 webSocket.send(JSON.stringify(to_send));
+                document.getElementById("limit").textContent = "The first brush strokes are about to hit the canvas!";
                 break;
 
             case "end_iteration":
+                document.getElementById("limit").textContent = "Look at this brand new piece of art!";
                 console.log("WebSocket STATE: " + msg.state);
                 document.getElementById("iteration_img").src = "data:image/png;base64," + msg.data.image;
                 break;

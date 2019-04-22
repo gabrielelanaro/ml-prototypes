@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <html>
+<!-- Favicon -->
+<link rel="icon" href="favicon.ico" type="image/x-icon">
 
 <head>
     <h1>Turn into an artist. Paint like a pro.</h1>
@@ -40,7 +42,14 @@
         <span id="limit"></span>
         </br>
         </br>
-        <img id="iteration_img" height="300"></img>
+        <div id="for_download">
+            <img id="iteration_img" height="300"></img>
+        </div>
+        </br>
+        </br>
+        <button class="buttons">
+            <a href="#" style="color:white" onclick="this.href = $('#for_download img:first').attr('src');" download>Download your piece of art!</a>
+        </button>
     </div>
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.0/jquery.min.js"></script>
     <script src="scripts.js"></script>
