@@ -9,6 +9,11 @@ var answers = ["The_Scream.jpg",
     "VanGogh.png"
 ];
 
+function kill_page() {
+    location.reload();
+    document.getElementById("limit").textContent = "Oups... Our AWS artists were lazier than expected today. Can you please try again later?";
+}
+
 function choose(choices) {
     var index = Math.floor(Math.random() * choices.length);
     return choices[index];
@@ -26,7 +31,7 @@ document.getElementById('inp').onchange = function(e) {
 }
 
 document.getElementById("st").onclick = function() {
-    document.getElementById("limit").textContent = "One second, please. Artists need time to focus and find inspiration...";
+    document.getElementById("limit").textContent = "One second, please. Checking if we have some spare GPU artists...";
     this.disabled = true;
     $.ajax({
         url: API_ENDPOINT,
@@ -35,6 +40,9 @@ document.getElementById("st").onclick = function() {
         dataType: 'json',
         contentType: "application/json",
         success: openStyleTransferSocket,
+        error: function(xhr, status, error) {
+            document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";
+        }
     });
 }
 
@@ -42,16 +50,18 @@ function openStyleTransferSocket(response) {
     var msg = JSON.parse(response);
 
     if (msg.dns == "limit exceeded") {
-        document.getElementById("limit").textContent = "Sorry, we ran out of artistic GPUs! Can you try again in a couple of minutes?";
+        document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";
         return
     }
 
     var webSocketURL = "ws://" + msg.dns + ":8000/styletransfer"
 
-    var maxWaitTime = 3 * 60 * 1000; // 3 minutes
+    var maxWaitTime = 5; // 5 minutes
     var waitFor = 500;
     var retryNo = 0;
     var increaseBy = 1.05;
+    var start = new Date();
+    //setTimeout(kill_page, 20 * 1000);
 
     function setupWebSocket() {
         console.log("Websocket connecting to: " + webSocketURL);
@@ -60,11 +70,15 @@ function openStyleTransferSocket(response) {
         webSocket.onerror = function(event) {
             console.log("There was an error connecting, retry no " + retryNo);
             waitTime = waitFor * Math.pow(increaseBy, retryNo);
-            if (waitTime < maxWaitTime) {
+            now = new Date();
+            elapsed = (now - start) / (1000 * 60)
+            console.log("waitTime (ms): " + waitTime);
+            console.log("elapsed (minutes): " + elapsed);
+            if (elapsed < maxWaitTime) {
                 // Reconnecting
                 retryNo += 1;
                 if (retryNo < 5) {
-                    document.getElementById("limit").textContent = "Ok. Spinning up an artistic atelier on AWS...";
+                    document.getElementById("limit").textContent = "Found one! Ok. Spinning up an artistic atelier on AWS...";
                 } else if (retryNo < 10) {
                     document.getElementById("limit").textContent = "Trying to connect to our atelier...";
                 } else if (retryNo < 15) {
@@ -81,6 +95,7 @@ function openStyleTransferSocket(response) {
                 setTimeout(setupWebSocket, waitTime);
             } else {
                 // Ok we give up and we invoke the handler's error callback instead.
+                document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";
                 webSocketHandler.onerror = function(e) { webSocketHandler.onerror(webSocket, e) };
             }
         };
