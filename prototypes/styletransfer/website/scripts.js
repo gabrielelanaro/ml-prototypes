@@ -127,6 +127,7 @@ var webSocketHandler = {
                     data: {
                         content_image: base64FromCanvasId("content_img"),
                         style_image: base64FromCanvasId("style_img"),
+                        iterations: 300,
                     }
                 };
                 webSocket.send(JSON.stringify(to_send));
