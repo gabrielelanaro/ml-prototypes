@@ -28,7 +28,7 @@
     <div class="style-image">
         <canvas id="style_img" height="300"></canvas>
     </div>
-    <h3>Choose an image to style</h3>
+    <h3>Choose an image to style <a href="#footnote">[*]</a></h3>
     <div class="input-container">
         <input type="file" value="Choose an image to style" id="inp" class="buttons" accept="image/*">
         </br>
@@ -53,6 +53,9 @@
     </div>
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.0/jquery.min.js"></script>
     <script src="scripts.js"></script>
+    <p id="footnote">[*] To avoid AWS costs going through the roof, we spin-up (and then auto-kill) <br /> a brand new GPU-powered EC2 instance each time a user submits a new request. <br /> System boot plus python env setup are very slow processes, hence you might <br
+        /> have to wait <b>up to 4 minutes</b> before the actual Neural Style Transfer <br /> process gets started. Apologies for the inconvenience.
+    </p>
 </body>
 
 </html>
