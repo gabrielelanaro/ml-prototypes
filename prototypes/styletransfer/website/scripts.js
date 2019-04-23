@@ -9,11 +9,6 @@ var answers = ["The_Scream.jpg",
     "VanGogh.png"
 ];
 
-function kill_page() {
-    location.reload();
-    document.getElementById("limit").textContent = "Oups... Our AWS artists were lazier than expected today. Can you please try again later?";
-}
-
 function choose(choices) {
     var index = Math.floor(Math.random() * choices.length);
     return choices[index];
