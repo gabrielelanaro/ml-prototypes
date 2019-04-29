@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from prototypes.textrecognition.model import ConvolutionalEncoder, TextRecognizer
+from prototypes.textrecognition.trainer import Trainer
 
 rng = np.random.RandomState(42)
 
@@ -20,6 +21,13 @@ def test_cnn():
 
     enc = ConvolutionalEncoder(3)
     out_batch, out_channels, out_height, out_width = enc(_test_tensor).shape
+
+    assert enc.output_size(batch_size, 3, height, width) == (
+        out_batch,
+        out_channels,
+        out_height,
+        out_width,
+    )
 
     assert out_batch == batch_size
     assert out_channels == 512
@@ -50,3 +58,10 @@ def test_recognizer():
     assert out_vocab_size == 4
     assert out_batch_len == batch_size
     assert out_seq_len == 24  # This depends on the input size
+
+
+def test_training():
+
+    trainer = Trainer(100)
+
+    trainer.train(_test_img, ["abc", "bcd"])

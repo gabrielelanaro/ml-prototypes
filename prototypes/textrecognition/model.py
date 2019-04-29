@@ -37,3 +37,6 @@ class TextRecognizer(nn.Module):
         out, _ = self.rnn(seq)
         logits = self.linear_to_vocab(out)
         return logits
+
+    def sequence_size(self, width):
+        return self.image_encoder.output_size(1, 3, 32, width)[3]
