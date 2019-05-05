@@ -1,4 +1,5 @@
 var API_ENDPOINT = "https://qgu3stesgg.execute-api.eu-west-1.amazonaws.com/dev"
+var ITERATIONS = 300
 
 var answers = ["The_Scream.jpg",
     "The_Scream.jpg",
@@ -137,7 +138,7 @@ var webSocketHandler = {
                     data: {
                         content_image: base64FromCanvasId("content_img"),
                         style_image: base64FromCanvasId("style_img"),
-                        iterations: 300,
+                        iterations: ITERATIONS,
                     }
                 };
                 webSocket.send(JSON.stringify(to_send));
@@ -145,7 +146,7 @@ var webSocketHandler = {
                 break;
 
             case "end_iteration":
-                document.getElementById("limit").textContent = "Look at this brand new piece of art!";
+                document.getElementById("limit").textContent = msg.data.iteration_no + " of " + ITERATIONS + " iterations. Look at this brand new piece of art!";
                 console.log("WebSocket STATE: " + msg.state);
                 document.getElementById("iteration_img").src = "data:image/png;base64," + msg.data.image;
                 break;
