@@ -146,7 +146,7 @@ var webSocketHandler = {
                 break;
 
             case "end_iteration":
-                document.getElementById("limit").textContent = msg.data.iteration_no + " of " + ITERATIONS + " iterations. Look at this brand new piece of art!";
+                document.getElementById("limit").textContent = msg.data.iteration + " of " + ITERATIONS + " iterations. Look at this brand new piece of art!";
                 console.log("WebSocket STATE: " + msg.state);
                 document.getElementById("iteration_img").src = "data:image/png;base64," + msg.data.image;
                 break;
