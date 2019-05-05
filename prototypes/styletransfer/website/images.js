@@ -29,6 +29,8 @@ document.getElementById('inp').onchange = function(e) {
 document.getElementById("st").onclick = function() {
     document.getElementById("limit").textContent = "One second, please. Checking if we have some spare GPU artists...";
     this.disabled = true;
+    document.getElementById("st").style.backgroundColor = "#ffc477"
+    document.getElementById("st").value = "Running"
     $.ajax({
         url: API_ENDPOINT,
         type: 'POST',
