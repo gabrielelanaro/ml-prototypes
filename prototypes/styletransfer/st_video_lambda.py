@@ -10,31 +10,39 @@ def lambda_handler(event, context):
     key = record['s3']['object']['key']
     
     response = s3.head_object(Bucket=bucket, Key=key)
+    email = response['Metadata']['email']
+    style = response['Metadata']['style']
 
     print(bucket)
     print(key)
-    print(response['Metadata']['email'])
+    print(email)
     
     SENDER = "fra.pochetti@gmail.com"
-    RECIPIENT = "fra.pochetti@gmail.com"
-    SUBJECT = "Francesco Email Test"
+    RECIPIENT = email
+    SUBJECT = "VisualNeurons.com - your video has been ingested!"
     
-    BODY_TEXT = ("Amazon SES Test (Python)\r\n"
-                 "This email was sent with Amazon SES using the "
-                 "AWS SDK for Python (Boto)."
+    BODY_TEXT = ("VisualNeurons.com - your video has been ingested! \r\n"
+                 "The purpose of this email is to confirm that we successfully ingested your video file"
+                 "and that we are currently processing it."
                 )
 
     # The HTML body of the email.
-    BODY_HTML = """<html>
-    <head></head>
-    <body>
-      <h1>Amazon SES Test (SDK for Python)</h1>
-      <p>This email was sent with
-        <a href='https://aws.amazon.com/ses/'>Amazon SES</a> using the
-        <a href='https://aws.amazon.com/sdk-for-python/'>
-          AWS SDK for Python (Boto)</a>.</p>
-    </body>
-    </html>
+    BODY_HTML = """
+<html>
+
+<head></head>
+
+<body>
+    <h3>You just uploaded a video file to S3. Congratulations!</h3>
+    <p>The purpose of this email is to confirm that we successfully ingested your video and that we are currently processing it.
+        </br>
+        When our GPUs finish crunching your request, you will receive another email with the link to your Style-Transferred-video.
+        </br>
+        This will happen in a hour or so. Thanks for your patience!
+    </p>
+</body>
+
+</html>
                 """            
 
     # The character encoding for the email.
