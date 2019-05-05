@@ -16,6 +16,11 @@ function choose(choices) {
 }
 
 window.onload = loadImageInCanvas(choose(answers), document.getElementById('style_img'))
+window.onload = function() {
+    document.getElementById("down").disabled = true
+    document.getElementById("down").textContent = ""
+    document.getElementById("down").style.backgroundColor = "white"
+}
 
 document.getElementById('style_choice').onchange = function(e) {
     loadImageInCanvas(document.getElementById("style_choice").value, document.getElementById('style_img'));
@@ -151,6 +156,11 @@ var webSocketHandler = {
                 document.getElementById("limit").textContent = (msg.data.iteration + 1) + " of " + ITERATIONS + " iterations. Look at this brand new piece of art!";
                 console.log("WebSocket STATE: " + msg.state);
                 document.getElementById("iteration_img").src = "data:image/png;base64," + msg.data.image;
+                if (msg.data.iteration == (ITERATIONS - 1)) {
+                    document.getElementById("down").disabled = false
+                    document.getElementById("down").textContent = "Download your piece of art!"
+                    document.getElementById("down").style.backgroundColor = "#FF9900"
+                }
                 break;
 
             default:

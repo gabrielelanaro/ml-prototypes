@@ -41,6 +41,9 @@ function validateEmail(email) {
 }
 
 button.addEventListener('click', function() {
+    this.disabled = true;
+    button.style.backgroundColor = "#ffc477"
+    button.textContent = "Uploaded"
     email = document.getElementById('email').value.toLowerCase();
 
     if (validateEmail(email) == false) {
