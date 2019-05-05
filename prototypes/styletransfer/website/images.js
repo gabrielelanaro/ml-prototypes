@@ -23,7 +23,7 @@ document.getElementById('style_choice').onchange = function(e) {
 
 document.getElementById('inp').onchange = function(e) {
     loadImageInCanvas(URL.createObjectURL(this.files[0]), document.getElementById('content_img'));
-
+    this.disabled = true;
 }
 
 document.getElementById("st").onclick = function() {
