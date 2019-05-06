@@ -41,9 +41,6 @@ function validateEmail(email) {
 }
 
 button.addEventListener('click', function() {
-    this.disabled = true;
-    button.style.backgroundColor = "#ffc477"
-    button.textContent = "Uploaded"
     email = document.getElementById('email').value.toLowerCase();
 
     if (validateEmail(email) == false) {
@@ -57,6 +54,9 @@ button.addEventListener('click', function() {
     var file = fileChooser.files[0];
 
     if (file) {
+        this.disabled = true;
+        button.style.backgroundColor = "#ffc477"
+        button.textContent = "Uploaded"
 
         results.textContent = '';
         clean_email = email.replace(/[^a-zA-Z0-9]/g, '')
