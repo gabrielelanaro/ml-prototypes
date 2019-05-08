@@ -35,6 +35,33 @@ var fileChooser = document.getElementById('file-chooser');
 var button = document.getElementById('upload-button');
 var results = document.getElementById('results');
 
+fileChooser.onchange = function(e) {
+    var file = this.files[0]; // Get uploaded file
+    validateFile(file) // Validate Duration
+}
+
+function validateFile(file) {
+
+    var video = document.createElement('video');
+    video.preload = 'metadata';
+
+    video.onloadedmetadata = function() {
+
+        window.URL.revokeObjectURL(video.src);
+
+        if (video.duration > 30) {
+            results.textContent = "Your videos exceeds our current limit of 30s. Sorry, this is too long for us!"
+            setTimeout(function() {
+                results.textContent = ''
+            }, 5000);
+            fileChooser.value = '';
+        }
+
+    }
+
+    video.src = URL.createObjectURL(file);
+}
+
 function validateEmail(email) {
     var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
