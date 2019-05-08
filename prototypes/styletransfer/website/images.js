@@ -1,4 +1,5 @@
 var API_ENDPOINT = "https://qgu3stesgg.execute-api.eu-west-1.amazonaws.com/dev"
+var ITERATIONS = 300
 
 var answers = ["The_Scream.jpg",
     "The_Scream.jpg",
@@ -22,12 +23,14 @@ document.getElementById('style_choice').onchange = function(e) {
 
 document.getElementById('inp').onchange = function(e) {
     loadImageInCanvas(URL.createObjectURL(this.files[0]), document.getElementById('content_img'));
-
+    this.disabled = true;
 }
 
 document.getElementById("st").onclick = function() {
     document.getElementById("limit").textContent = "One second, please. Checking if we have some spare GPU artists...";
     this.disabled = true;
+    document.getElementById("st").style.backgroundColor = "#ffc477"
+    document.getElementById("st").value = "Running"
     $.ajax({
         url: API_ENDPOINT,
         type: 'POST',
@@ -137,7 +140,7 @@ var webSocketHandler = {
                     data: {
                         content_image: base64FromCanvasId("content_img"),
                         style_image: base64FromCanvasId("style_img"),
-                        iterations: 300,
+                        iterations: ITERATIONS,
                     }
                 };
                 webSocket.send(JSON.stringify(to_send));
@@ -145,7 +148,7 @@ var webSocketHandler = {
                 break;
 
             case "end_iteration":
-                document.getElementById("limit").textContent = "Look at this brand new piece of art!";
+                document.getElementById("limit").textContent = (msg.data.iteration + 1) + " of " + ITERATIONS + " iterations. Look at this brand new piece of art!";
                 console.log("WebSocket STATE: " + msg.state);
                 document.getElementById("iteration_img").src = "data:image/png;base64," + msg.data.image;
                 break;

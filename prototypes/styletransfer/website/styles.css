@@ -1,3 +1,14 @@
+.buttons-home {
+    border: solid 0px #e6b215;
+    border-radius: 8px;
+    font-size: 24px;
+    color: #ffffff;
+    width: 400px;
+    padding: 30px 30px;
+    background-color: #FF9900;
+    cursor: pointer;
+}
+
 .buttons {
     border: solid 0px #e6b215;
     border-radius: 8px;
