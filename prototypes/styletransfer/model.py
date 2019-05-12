@@ -28,10 +28,10 @@ class LossWeights(NamedTuple):
 
 
 class StyleLoss(NamedTuple):
-    loss: 0.0
-    style: 0.0
-    content: 0.0
-    total_variation: 0.0
+    loss: float = 0.0
+    style: float = 0.0
+    content: float = 0.0
+    total_variation: float = 0.0
 
 
 class StyleTransferResult(NamedTuple):
@@ -270,8 +270,8 @@ class StyleTransfer:
                 image=plot_img,
                 iteration_no=i,
                 total_loss=all_loss.loss,
-                style_loss=all_loss.style_score,
-                content_loss=all_loss.content_score,
+                style_loss=all_loss.style,
+                content_loss=all_loss.content,
                 elapsed_time_sec=time.time() - start_time,
             )
 

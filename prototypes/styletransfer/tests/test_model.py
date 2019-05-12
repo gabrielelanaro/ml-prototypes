@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from prototypes.styletransfer.model import StyleTransfer, gram_matrix
+from prototypes.styletransfer.model import StyleTransfer, gram_matrix, LossWeights, make_blog_style_transfer
 import tensorflow.contrib.eager as tfe
 
 
@@ -15,7 +15,7 @@ def test_model():
     content_img = _sample_img(512)
     style_img = _sample_img(512)
 
-    model = StyleTransfer()
+    model = make_blog_style_transfer()
 
     content_rep, style_rep = model.feature_representations(content_img, style_img)
     assert isinstance(content_rep, list)
@@ -30,7 +30,7 @@ def test_model_loss():
     style_img = _sample_img(512)
     init_img = _sample_img(512)
 
-    model = StyleTransfer()
+    model = make_blog_style_transfer()
 
     content_rep, style_rep = model.feature_representations(content_img, style_img)
 
@@ -38,7 +38,7 @@ def test_model_loss():
     init_img = tfe.Variable(init_img, dtype=tf.float32)
 
     gram_style_features = [gram_matrix(style_feature) for style_feature in style_rep]
-    loss_weights = (0.5, 0.5)
+    loss_weights = LossWeights()
 
     losses = model._loss(loss_weights, init_img, gram_style_features, content_rep)
 
@@ -50,7 +50,7 @@ def test_run_styletransfer():
     content_img = _sample_img(512)
     style_img = _sample_img(512)
 
-    model = StyleTransfer()
+    model = make_blog_style_transfer()
 
     for st in model.run_style_transfer(content_img, style_img, num_iterations=10):
         assert isinstance(st.image, np.ndarray)
@@ -60,11 +60,11 @@ def test_content2weight():
         style_img = _sample_img(512)
         init_img = _sample_img(512)
 
-        model = StyleTransfer()
+        model = make_blog_style_transfer()
         init_img = model._process_img(init_img)
         init_image = tfe.Variable(init_img, dtype=tf.float32)
 
-        loss_weights = (1.0, 1.0)
+        loss_weights = LossWeights()
 
         c2s = model._estimate_content2weight(content_img, style_img, loss_weights, init_image)
 
