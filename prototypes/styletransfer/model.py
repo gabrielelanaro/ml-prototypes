@@ -206,7 +206,12 @@ class StyleTransfer:
         transferred = []
         for frame in range(0, nframes-1):
             content_img = frame
-            for result in self.run_style_transfer(style_img=style_img, content_img=content_img, num_iterations=num_iterations): 
+            for result in self.run_style_transfer(style_img=style_img, 
+                                                content_img=content_img, 
+                                                num_iterations=num_iterations,
+                                                content_weight=content_weight,
+                                                style_weight=style_weight,
+                                                total_variation_weight=total_variation_weight): 
                 img = result.image
             transferred.append(img)
 
