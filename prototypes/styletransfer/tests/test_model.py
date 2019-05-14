@@ -2,9 +2,11 @@ import numpy as np
 import tensorflow as tf
 from prototypes.styletransfer.model import StyleTransfer, gram_matrix, LossWeights, make_blog_style_transfer
 import tensorflow.contrib.eager as tfe
+from prototypes.styletransfer.videos import extract_frames_from_gif
 
 
 rng = np.random.RandomState(42)
+TEST_GIF_PATH = "prototypes/styletransfer/tests/no_god_no.gif"
 
 
 def _sample_img(size):
@@ -45,6 +47,18 @@ def test_model_loss():
     assert isinstance(losses, tuple)
     assert isinstance(losses[0], tf.Tensor)
 
+def test_run_styletransfer_video():
+    gif = extract_frames_from_gif(TEST_GIF_PATH)
+    style_img = _sample_img(512)
+
+    model = make_blog_style_transfer()
+    transferred = model.run_style_transfer_video(frames=gif, style_img=style_img)
+
+    assert isinstance(transferred, list)
+    assert isinstance(transferred[0], np.ndarray)
+    assert transferred[0].shape[2] == 3
+    assert len(transferred) == len(gif)
+    assert transferred[302].shape == gif[302].shape
 
 def test_run_styletransfer():
     content_img = _sample_img(512)
