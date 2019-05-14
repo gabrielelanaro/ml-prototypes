@@ -21,6 +21,19 @@ class InitType(enum.Enum):
     CONTENT = "content"
 
 
+class LossWeights(NamedTuple):
+    style: float = 1.0
+    content: float = 1.0
+    total_variation: float = 1.0
+
+
+class StyleLoss(NamedTuple):
+    loss: float = 0.0
+    style: float = 0.0
+    content: float = 0.0
+    total_variation: float = 0.0
+
+
 class StyleTransferResult(NamedTuple):
     image: np.array
     iteration_no: int
@@ -30,8 +43,50 @@ class StyleTransferResult(NamedTuple):
     elapsed_time_sec: float
 
 
+def make_google_style_transfer() -> 'StyleTransfer':
+    style_layers = [
+        "block1_conv1",
+        "block2_conv1",
+        "block3_conv1",
+        "block4_conv1",
+        "block5_conv1",
+    ]
+
+    content_layers = ["block5_conv2"]
+    architecture = "vgg19"
+
+    return StyleTransfer(
+        style_layers=style_layers,
+        content_layers=content_layers,
+        architecture=architecture,
+    )
+
+
+def make_blog_style_transfer() -> 'StyleTransfer':
+    architecture = "vgg16"
+    style_layers = [
+        "block1_conv2",
+        "block2_conv2",
+        "block3_conv3",
+        "block4_conv3",
+        "block5_conv3",
+    ]
+    content_layers = ["block2_conv2"]
+    return StyleTransfer(
+        style_layers=style_layers,
+        content_layers=content_layers,
+        architecture=architecture,
+    )
+
+
 class StyleTransfer:
-    def __init__(self, init_image_type: InitType = InitType.CONTENT):
+    def __init__(
+        self,
+        style_layers,
+        content_layers,
+        architecture="vgg16",
+        init_image_type: InitType = InitType.CONTENT,
+    ):
         """Applies style transfer to an image.
 
         Parameters:
@@ -39,25 +94,21 @@ class StyleTransfer:
           Either using the original content image, or at random.
         """
         # Content layer where will pull our feature maps
-        self._content_layers = ["block5_conv2"]
+        self._content_layers = content_layers
 
         # Style layer we are interested in
-        self._style_layers = [
-            "block1_conv1",
-            "block2_conv1",
-            "block3_conv1",
-            "block4_conv1",
-            "block5_conv1",
-        ]
+        self._style_layers = style_layers
         self._num_style_layers = len(self._style_layers)
         self._num_content_layers = len(self._content_layers)
-
-        self._model = self._make_keras(self._style_layers, self._content_layers)
+        self._architecture = architecture
+        self._model = self._make_keras(
+            architecture, self._style_layers, self._content_layers
+        )
 
         # Configurable option
         self.init_image_type = init_image_type
 
-    def _make_keras(self, style_layers, content_layers) -> models.Model:
+    def _make_keras(self, architecture, style_layers, content_layers) -> models.Model:
         # Returns keras model our model with access to intermediate layers.
         #
         # This function will load the VGG19 model and access the intermediate layers.
@@ -69,7 +120,14 @@ class StyleTransfer:
         #     content intermediate layers.
 
         # Load our model. We load pretrained VGG, trained on imagenet data
-        vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights="imagenet")
+        if architecture == "vgg19":
+            vgg = tf.keras.applications.vgg19.VGG19(
+                include_top=False, weights="imagenet"
+            )
+        elif architecture == "vgg16":
+            vgg = tf.keras.applications.vgg16.VGG16(
+                include_top=False, weights="imagenet"
+            )
         vgg.trainable = False
         # Get output layers corresponding to style and content layers
         style_outputs = [vgg.get_layer(name).output for name in style_layers]
@@ -118,7 +176,7 @@ class StyleTransfer:
         self,
         content_img: np.array,
         style_img: np.array,
-        loss_weights: Tuple[float],
+        loss_weights: LossWeights,
         init_img: tfe.Variable,
     ) -> float:
 
@@ -126,10 +184,10 @@ class StyleTransfer:
         gram_style_features = [
             gram_matrix(style_feature) for style_feature in style_rep
         ]
-        losses = self._loss(loss_weights, init_img, gram_style_features, content_rep)
+        loss = self._loss(loss_weights, init_img, gram_style_features, content_rep)
 
-        content = float(losses[2].numpy()) + 1.0
-        style = float(losses[1].numpy()) + 1.0
+        content = float(loss.content.numpy()) + 1.0
+        style = float(loss.style.numpy()) + 1.0
 
         return content / style
 
@@ -140,6 +198,7 @@ class StyleTransfer:
         num_iterations=1000,
         content_weight=1.0,
         style_weight=1.0,
+        total_variation_weight=1.0
     ) -> Iterator[StyleTransferResult]:
         # We don't need to (or want to) train any layers of our model, so we set their
         # trainable to false.
@@ -160,15 +219,15 @@ class StyleTransfer:
         )
 
         # Create a nice config
-        loss_weights = (style_weight, content_weight)
+        loss_weights = LossWeights(style=style_weight, content=content_weight, total_variation=total_variation_weight)
 
-        # Compute the content2style ratio to balance losses
-        c2s = self._estimate_content2weight(
-            content_img, style_img, loss_weights, init_image
-        )
+        # # Compute the content2style ratio to balance losses
+        # c2s = self._estimate_content2weight(
+        #     content_img, style_img, loss_weights, init_image
+        # )
 
-        # update weights
-        loss_weights = (1.0, c2s)
+        # # update weights
+        # loss_weights = LossWeights(style=1.0, content=c2s)
 
         # Create our optimizer
         opt = tf.train.AdamOptimizer(learning_rate=5, beta1=0.99, epsilon=1e-1)
@@ -190,14 +249,13 @@ class StyleTransfer:
             grads, all_loss = self._loss_gradient(
                 loss_weights, init_image, gram_style_features, content_features
             )
-            loss, style_score, content_score = all_loss
             opt.apply_gradients([(grads, init_image)])
             clipped = tf.clip_by_value(init_image, min_vals, max_vals)
             init_image.assign(clipped)
 
-            if loss < best_loss:
+            if all_loss.loss < best_loss:
                 # Update best loss and best image from total loss.
-                best_loss = loss
+                best_loss = all_loss.loss
                 # TODO: should we return best loss and best image or should we let
                 # the code do that?
                 best_img = deprocess_vgg(init_image.numpy()[0])
@@ -212,9 +270,9 @@ class StyleTransfer:
             yield StyleTransferResult(
                 image=plot_img,
                 iteration_no=i,
-                total_loss=loss,
-                style_loss=style_score,
-                content_loss=content_score,
+                total_loss=all_loss.loss,
+                style_loss=all_loss.style,
+                content_loss=all_loss.content,
                 elapsed_time_sec=time.time() - start_time,
             )
 
@@ -241,11 +299,11 @@ class StyleTransfer:
 
     def _loss(
         self,
-        loss_weights: List[float],
+        loss_weights: LossWeights,
         init_image: tfe.Variable,
         gram_style_features: List[tf.Tensor],
         content_features: List[tf.Tensor],
-    ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+    ) -> StyleLoss:
         """This function will compute the total loss.
 
         Arguments:
@@ -262,7 +320,6 @@ class StyleTransfer:
         Returns:
             returns the total loss, style loss, content loss
         """
-        style_weight, content_weight = loss_weights
 
         # Feed our init image through our model. This will give us the content and
         # style representations at our desired layers. Since we're using eager
@@ -295,12 +352,20 @@ class StyleTransfer:
                 comb_content[0], target_content
             )
 
-        style_score *= style_weight
-        content_score *= content_weight
+        total_variation_score = self._total_variation_loss(init_image)
+
+        style_score *= loss_weights.style
+        content_score *= loss_weights.content
+        total_variation_score *= loss_weights.total_variation
 
         # Get total loss
-        loss = style_score + content_score
-        return loss, style_score, content_score
+        loss = style_score + content_score + total_variation_score
+        return StyleLoss(
+            loss=loss,
+            style=style_score,
+            content=content_score,
+            total_variation=total_variation_score,
+        )
 
     def _content_loss(self, base_content, target):
         return tf.reduce_mean(tf.square(base_content - target))
@@ -315,6 +380,9 @@ class StyleTransfer:
             tf.square(gram_style - gram_target)
         )  # / (4. * (channels ** 2) * (width * height) ** 2)
 
+    def _total_variation_loss(self, image: tf.Variable):
+        return tf.reduce_mean(tf.image.total_variation(image))
+
     def _loss_gradient(
         self,
         loss_weights: Tuple[float, float],
@@ -327,7 +395,7 @@ class StyleTransfer:
                 loss_weights, init_image, style_features, content_features
             )
 
-        total_loss = all_loss[0]
+        total_loss = all_loss.loss
         return tape.gradient(total_loss, init_image), all_loss
 
 

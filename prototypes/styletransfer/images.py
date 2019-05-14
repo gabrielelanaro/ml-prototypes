@@ -26,6 +26,10 @@ def load_image(img_path: str, max_size: int = 512) -> np.array:
     img = kp_image.img_to_array(img)
     return img
 
+def save_image(img_data: np.array, img_path: str) -> None:
+    im = Image.fromarray(img_data)
+    im.save(img_path)
+
 
 def show_image(img_array: np.array, title: str = None) -> None:
     assert_rgb(img_array)

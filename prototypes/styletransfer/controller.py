@@ -6,7 +6,7 @@ from tornado.ioloop import IOLoop
 from tornado.websocket import WebSocketHandler
 
 from .async_utils import async_next, AsyncStopIteration
-from .model import StyleTransfer, StyleTransferResult
+from .model import StyleTransfer, StyleTransferResult, make_google_style_transfer
 from .serialization import image_to_base64
 
 
@@ -91,4 +91,4 @@ class StyleTransferController:
         await self._ws.write_message({"state": self.state.value, "data": data})
 
     def _do_load_model(self) -> StyleTransfer:
-        return StyleTransfer()
+        return make_google_style_transfer()

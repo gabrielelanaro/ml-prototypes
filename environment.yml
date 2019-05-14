@@ -14,3 +14,4 @@ dependencies:
   - pillow=5.4.1
   - mypy=0.670
   - h5py=2.9.0
+  - click=7.0
