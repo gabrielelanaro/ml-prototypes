@@ -3,6 +3,32 @@ import os
 import numpy as np
 import subprocess
 from typing import List
+from PIL import Image
+import shutil
+
+def fix_img(img: np.array) -> np.array:
+    if len(img.shape) > 2 and img.shape[2] == 4:
+      img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+    return img
+
+def extract_frames_from_gif(gif_path: str) -> List[np.array]:
+    # this assumes the gif has been already downloaded from S3 to EC2
+
+    directory = "./frames"
+    if os.path.exists("./frames"): shutil.rmtree(directory)
+    os.makedirs(directory)
+
+    subprocess.run(["ffmpeg", "-i",  f"{gif_path}", f"{directory}/frame%05d.png"])
+
+    frames = []
+    for img_name in os.listdir(directory):
+        img_path = os.path.join(directory, img_name)
+        img = Image.open(img_path)
+        img = np.array(img)
+        img = fix_img(img)
+        frames.append(img)
+
+    return frames
 
 def make_video(images: List[np.array], 
                save_to: str, 
