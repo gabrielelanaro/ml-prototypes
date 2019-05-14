@@ -49,6 +49,7 @@ def test_model_loss():
 
 def test_run_styletransfer_video():
     gif = extract_frames_from_gif(TEST_GIF_PATH)
+    gif = gif[:5]
     style_img = _sample_img(512)
 
     model = make_blog_style_transfer()
@@ -58,7 +59,7 @@ def test_run_styletransfer_video():
     assert isinstance(transferred[0], np.ndarray)
     assert transferred[0].shape[2] == 3
     assert len(transferred) == len(gif)
-    assert transferred[302].shape == gif[302].shape
+    assert transferred[4].shape == gif[4].shape
 
 def test_run_styletransfer():
     content_img = _sample_img(512)

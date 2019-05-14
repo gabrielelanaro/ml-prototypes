@@ -204,7 +204,7 @@ class StyleTransfer:
 
         nframes = len(frames)
         transferred = []
-        for frame in range(0, nframes-1):
+        for frame in range(0, nframes):
             content_img = frames[frame]
             for result in self.run_style_transfer(style_img=style_img, 
                                                 content_img=content_img, 
