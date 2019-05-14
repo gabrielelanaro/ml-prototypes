@@ -56,16 +56,12 @@ def test_run_styletransfer():
         assert isinstance(st.image, np.ndarray)
 
 def test_content2weight():
-        content_img = _sample_img(512)
-        style_img = _sample_img(512)
-        init_img = _sample_img(512)
-
-        model = make_blog_style_transfer()
-        init_img = model._process_img(init_img)
-        init_image = tfe.Variable(init_img, dtype=tf.float32)
-
-        loss_weights = LossWeights()
-
-        c2s = model._estimate_content2weight(content_img, style_img, loss_weights, init_image)
-
-        assert(isinstance(c2s, float))
+    content_img = _sample_img(512)
+    style_img = _sample_img(512)
+    init_img = _sample_img(512)        
+    model = make_blog_style_transfer()
+    init_img = model._process_img(init_img)
+    init_image = tfe.Variable(init_img, dtype=tf.float32)      
+    loss_weights = LossWeights()       
+    c2s = model._estimate_content2weight(content_img, style_img, loss_weights, init_image)     
+    assert(isinstance(c2s, float))

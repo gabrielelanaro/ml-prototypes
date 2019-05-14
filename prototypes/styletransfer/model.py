@@ -12,6 +12,7 @@ import tensorflow.contrib.eager as tfe
 from tensorflow.python.keras import models
 
 from .images import process_vgg, deprocess_vgg
+from .videos import *
 
 tf.enable_eager_execution()
 
@@ -190,6 +191,26 @@ class StyleTransfer:
         style = float(loss.style.numpy()) + 1.0
 
         return content / style
+
+    def run_style_transfer_video(
+        self,
+        frames: List[np.array],
+        style_img: np.array,
+        num_iterations=100,
+        content_weight=1.0,
+        style_weight=1.0,
+        total_variation_weight=1.0
+    ) -> List[np.array]:
+
+        nframes = len(frames)
+        transferred = []
+        for frame in range(0, nframes-1):
+            content_img = frame
+            for result in self.run_style_transfer(style_img=style_img, content_img=content_img, num_iterations=num_iterations): 
+                img = result.image
+            transferred.append(img)
+
+        return transferred
 
     def run_style_transfer(
         self,
