@@ -79,3 +79,6 @@ def test_content2weight():
     loss_weights = LossWeights()       
     c2s = model._estimate_content2weight(content_img, style_img, loss_weights, init_image)     
     assert(isinstance(c2s, float))
+
+if __name__ == "__main__":
+    test_run_styletransfer_video()
