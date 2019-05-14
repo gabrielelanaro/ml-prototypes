@@ -43,7 +43,7 @@ class StyleTransferResult(NamedTuple):
     elapsed_time_sec: float
 
 
-def make_google_style_transfer():
+def make_google_style_transfer() -> 'StyleTransfer':
     style_layers = [
         "block1_conv1",
         "block2_conv1",
@@ -62,7 +62,7 @@ def make_google_style_transfer():
     )
 
 
-def make_blog_style_transfer():
+def make_blog_style_transfer() -> 'StyleTransfer':
     architecture = "vgg16"
     style_layers = [
         "block1_conv2",
@@ -198,6 +198,7 @@ class StyleTransfer:
         num_iterations=1000,
         content_weight=1.0,
         style_weight=1.0,
+        total_variation_weight=1.0
     ) -> Iterator[StyleTransferResult]:
         # We don't need to (or want to) train any layers of our model, so we set their
         # trainable to false.
@@ -218,15 +219,15 @@ class StyleTransfer:
         )
 
         # Create a nice config
-        loss_weights = LossWeights(style=style_weight, content=content_weight)
+        loss_weights = LossWeights(style=style_weight, content=content_weight, total_variation=total_variation_weight)
 
-        # Compute the content2style ratio to balance losses
-        c2s = self._estimate_content2weight(
-            content_img, style_img, loss_weights, init_image
-        )
+        # # Compute the content2style ratio to balance losses
+        # c2s = self._estimate_content2weight(
+        #     content_img, style_img, loss_weights, init_image
+        # )
 
-        # update weights
-        loss_weights = LossWeights(style=1.0, content=c2s)
+        # # update weights
+        # loss_weights = LossWeights(style=1.0, content=c2s)
 
         # Create our optimizer
         opt = tf.train.AdamOptimizer(learning_rate=5, beta1=0.99, epsilon=1e-1)
