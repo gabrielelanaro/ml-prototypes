@@ -2,15 +2,41 @@ import numpy as np
 import tensorflow as tf
 from prototypes.styletransfer.model import StyleTransfer, gram_matrix, LossWeights, make_blog_style_transfer
 import tensorflow.contrib.eager as tfe
-from prototypes.styletransfer.videos import extract_frames_from_gif, make_gif, get_gif_from_s3, upload_gif_to_s3, get_style_and_email
+from prototypes.styletransfer.videos import extract_frames_from_gif, make_gif, get_gif_from_s3, upload_gif_to_s3, get_style_and_email, send_email_to_user
+from prototypes.styletransfer.images import load_image
 import os
 
 
 rng = np.random.RandomState(42)
 TEST_GIF_PATH = "prototypes/styletransfer/tests/no_god_no.gif"
 
+def test_video_pipeline():
+    email, style = get_style_and_email("visualneurons.com-videos", "frapochettigmailcom_IronManTrim.mp4")
+    assert os.path.isfile("./The_Scream.jpg") == True
+    assert email == "fra.pochetti@gmail.com"
+    assert style == "The_Scream.jpg"
+
+    get_gif_from_s3("style-transfer-webapptest", "no_god_no.gif")
+    assert os.path.isfile("./no_god_no.gif") == True
+
+    gif = extract_frames_from_gif("no_god_no.gif")
+    gif = gif[:15]
+    style_img = load_image(style)
+    assert isinstance(style_img, np.ndarray)
+
+    model = make_blog_style_transfer()  
+    transferred = model.run_style_transfer_video(frames=gif, style_img=style_img)
+    assert len(transferred) == len(gif)
+    assert transferred[4].shape == gif[4].shape
+
+    make_gif(transferred)
+    s3_path = upload_gif_to_s3("visualneurons.com-gifs", "gif.gif")
+    assert "https://s3-eu-west-1.amazonaws.com/visualneurons.com-gifs/gif.gif" == s3_path
+
+    send_email_to_user(email, s3_path, style)
+
 def test_get_email_and_style():
-    email = get_style_and_email("visualneurons.com-videos", "frapochettigmailcom_IronManTrim.mp4")
+    email, style = get_style_and_email("visualneurons.com-videos", "frapochettigmailcom_IronManTrim.mp4")
 
     assert os.path.isfile("./The_Scream.jpg") == True
     assert email == "fra.pochetti@gmail.com"
@@ -117,4 +143,4 @@ def test_content2weight():
     assert(isinstance(c2s, float))
 
 if __name__ == "__main__":
-    test_save_gif()
+    test_video_pipeline()

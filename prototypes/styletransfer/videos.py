@@ -5,9 +5,94 @@ import subprocess
 from typing import List
 from PIL import Image
 import shutil
+from botocore.exceptions import ClientError
 
 # AWS credentials are secured by an appropriate IAM Role we attach to the EC2 instance at spin-up
 import boto3 
+
+def send_email_to_user(email: str,
+                       s3_path: str,
+                       style: str):
+
+    style2name = {
+        "The_Scream.jpg": "Select your style",
+        "The_Scream.jpg": "Munch, The Scream",
+        "Kand1.jpeg": "Kandinsky, Composition VII",
+        "Kand2.png": "Kandinsky, Composition VIII",
+        "Monet.jpg": "Monet, Wheatstacks (End of Summer)",
+        "Picasso.png": "Picasso, Guernica",
+        "VanGogh.png": "Van Gogh, Starry Night"
+    }            
+
+    SENDER = "fra.pochetti@gmail.com"
+    RECIPIENT = email
+    AWS_REGION = "eu-west-1"
+    SUBJECT = "VisualNeurons.com - your Style-Transferred GIF is ready!"
+    
+    BODY_TEXT = ("VisualNeurons.com - your Style-Transferred GIF is ready! \r\n"
+                 "Our AWS artists finished crunching your GIF, which is now available for download."
+                )
+
+    # The HTML body of the email.
+    BODY_HTML = f"""
+    <html>
+
+    <head></head>
+
+    <body>
+        <h4>Our AWS artists finished crunching your GIF!</h4>
+        <p>
+            We asked them to pick a brush and render the file as <b>{style2name[style]}</b>.
+            <br>
+            The result is really cool!
+            <br>
+            You can download the GIF <a href="{s3_path}">here</a>.
+            <br>
+        </p>
+    </body>
+
+    </html>
+                """            
+
+    # The character encoding for the email.
+    CHARSET = "UTF-8"
+
+    # Create a new SES resource and specify a region.
+    client = boto3.client('ses', region_name=AWS_REGION)
+
+    # Try to send the email.
+    try:
+        #Provide the contents of the email.
+        response = client.send_email(
+            Destination={
+                'ToAddresses': [
+                    RECIPIENT,
+                ],
+            },
+            Message={
+                'Body': {
+                    'Html': {
+                        'Charset': CHARSET,
+                        'Data': BODY_HTML,
+                    },
+                    'Text': {
+                        'Charset': CHARSET,
+                        'Data': BODY_TEXT,
+                    },
+                },
+                'Subject': {
+                    'Charset': CHARSET,
+                    'Data': SUBJECT,
+                },
+            },
+            Source=SENDER,
+        )
+    # Display an error if something goes wrong.	
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+    else:
+        print("Email sent! Message ID:"),
+        print(response['MessageId'])
 
 def get_style_and_email(bucket: str,
                         object_name: str):
@@ -18,7 +103,7 @@ def get_style_and_email(bucket: str,
 
     s3.download_file("visualneurons.com", style, style)
 
-    return email
+    return email, style
 
 def get_gif_from_s3(bucket: str,
                     object_name: str):
