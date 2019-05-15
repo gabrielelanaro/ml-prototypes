@@ -102,7 +102,7 @@ button.addEventListener('click', function() {
             if (err) {
                 results.textContent = 'ERROR: ' + err;
             } else {
-                results.textContent = "Video ingested successfully!";
+                results.textContent = "GIF ingested successfully!";
             }
         });
     } else {
