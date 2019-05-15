@@ -16,40 +16,42 @@ def lambda_handler(event, context):
     print(bucket)
     print(key)
     print(email)
+    print(style)
     
     SENDER = "fra.pochetti@gmail.com"
     RECIPIENT = email
-    SUBJECT = "VisualNeurons.com - your video has been ingested!"
+    AWS_REGION = "eu-west-1"
+    SUBJECT = "VisualNeurons.com - your GIF has been ingested!"
     
-    BODY_TEXT = ("VisualNeurons.com - your video has been ingested! \r\n"
-                 "The purpose of this email is to confirm that we successfully ingested your video file"
+    BODY_TEXT = ("VisualNeurons.com - your GIF has been ingested! \r\n"
+                 "The purpose of this email is to confirm that we successfully ingested your file"
                  "and that we are currently processing it."
                 )
 
     # The HTML body of the email.
     BODY_HTML = """
-<html>
+    <html>
 
-<head></head>
+    <head></head>
 
-<body>
-    <h3>You just uploaded a video file to S3. Congratulations!</h3>
-    <p>The purpose of this email is to confirm that we successfully ingested your video and that we are currently processing it.
-        </br>
-        When our GPUs finish crunching your request, you will receive another email with the link to your Style-Transferred-video.
-        </br>
-        This will happen in a hour or so. Thanks for your patience!
-    </p>
-</body>
+    <body>
+        <h3>You just uploaded a GIF to S3. Congratulations!</h3>
+        <p>The purpose of this email is to confirm that we successfully ingested your file and that we are currently processing it.
+            <br>
+            When our GPUs finish crunching your request, you will receive another email with the link to your Style-Transferred GIF.
+            <br>
+            This will happen in a hour or so. Thanks for your patience!
+        </p>
+    </body>
 
-</html>
+    </html>
                 """            
 
     # The character encoding for the email.
     CHARSET = "UTF-8"
 
     # Create a new SES resource and specify a region.
-    client = boto3.client('ses')
+    client = boto3.client('ses', region_name=AWS_REGION)
 
     # Try to send the email.
     try:
