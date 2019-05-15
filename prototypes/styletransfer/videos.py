@@ -9,6 +9,17 @@ import shutil
 # AWS credentials are secured by an appropriate IAM Role we attach to the EC2 instance at spin-up
 import boto3 
 
+def get_style_and_email(bucket: str,
+                        object_name: str):
+    s3 = boto3.client('s3')
+    response = s3.head_object(Bucket=bucket, Key=object_name)
+    email = response['Metadata']['email']
+    style = response['Metadata']['style']
+
+    s3.download_file("visualneurons.com", style, style)
+
+    return email
+
 def get_gif_from_s3(bucket: str,
                     object_name: str):
     s3 = boto3.client('s3')
