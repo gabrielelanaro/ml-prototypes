@@ -2,13 +2,18 @@ import numpy as np
 import tensorflow as tf
 from prototypes.styletransfer.model import StyleTransfer, gram_matrix, LossWeights, make_blog_style_transfer
 import tensorflow.contrib.eager as tfe
-from prototypes.styletransfer.videos import extract_frames_from_gif, make_gif, get_gif_from_s3, upload_gif_to_s3
+from prototypes.styletransfer.videos import extract_frames_from_gif, make_gif, get_gif_from_s3, upload_gif_to_s3, get_style_and_email
 import os
 
 
 rng = np.random.RandomState(42)
 TEST_GIF_PATH = "prototypes/styletransfer/tests/no_god_no.gif"
 
+def test_get_email_and_style():
+    email = get_style_and_email("visualneurons.com-videos", "frapochettigmailcom_IronManTrim.mp4")
+
+    assert os.path.isfile("./The_Scream.jpg") == True
+    assert email == "fra.pochetti@gmail.com"
 
 def _sample_img(size):
     return rng.randint(0, 255, (size, size, 3)).astype("float32")
