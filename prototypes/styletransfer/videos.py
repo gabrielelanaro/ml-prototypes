@@ -15,7 +15,7 @@ def extract_frames_from_gif(gif_path: str) -> List[np.array]:
     # this assumes the gif has been already downloaded from S3 to EC2
 
     directory = "./frames"
-    if os.path.exists("./frames"): shutil.rmtree(directory)
+    if os.path.exists(directory): shutil.rmtree(directory)
     os.makedirs(directory)
 
     subprocess.run(["ffmpeg", "-i",  f"{gif_path}", f"{directory}/frame%05d.png"])
@@ -29,6 +29,20 @@ def extract_frames_from_gif(gif_path: str) -> List[np.array]:
         frames.append(img)
 
     return frames
+
+def save_frames_to_disk(images: List[np.array],
+                        directory: str):
+    if os.path.exists(directory): shutil.rmtree(directory)
+    os.makedirs(directory)
+
+    for i, image in enumerate(images):
+        Image.fromarray(image).save(os.path.join(directory, f"frame{i}.jpeg"))
+
+def make_gif(images: List[np.array], 
+             directory: str = "./transferred", 
+             gif_name: str = "gif.gif"):
+    save_frames_to_disk(images, directory)
+    subprocess.run(["ffmpeg", "-y", "-f", "image2", "-framerate", "15", "-i", f"{directory}/frame%d.jpeg", f"{gif_name}"])
 
 def make_video(images: List[np.array], 
                save_to: str, 

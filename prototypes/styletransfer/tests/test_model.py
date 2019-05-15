@@ -2,7 +2,8 @@ import numpy as np
 import tensorflow as tf
 from prototypes.styletransfer.model import StyleTransfer, gram_matrix, LossWeights, make_blog_style_transfer
 import tensorflow.contrib.eager as tfe
-from prototypes.styletransfer.videos import extract_frames_from_gif
+from prototypes.styletransfer.videos import extract_frames_from_gif, make_gif
+import os
 
 
 rng = np.random.RandomState(42)
@@ -61,6 +62,19 @@ def test_run_styletransfer_video():
     assert len(transferred) == len(gif)
     assert transferred[4].shape == gif[4].shape
 
+def test_save_gif():
+    gif = extract_frames_from_gif(TEST_GIF_PATH)
+    gif = gif[:20]
+    style_img = _sample_img(512)
+
+    model = make_blog_style_transfer()
+    transferred = model.run_style_transfer_video(frames=gif, style_img=style_img)
+
+    make_gif(transferred)
+
+    assert os.path.isfile("./gif.gif") == True
+    assert os.stat("./gif.gif").st_size != 0
+
 def test_run_styletransfer():
     content_img = _sample_img(512)
     style_img = _sample_img(512)
@@ -82,4 +96,4 @@ def test_content2weight():
     assert(isinstance(c2s, float))
 
 if __name__ == "__main__":
-    test_run_styletransfer_video()
+    test_save_gif()
