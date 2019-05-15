@@ -6,6 +6,21 @@ from typing import List
 from PIL import Image
 import shutil
 
+# AWS credentials are secured by an appropriate IAM Role we attach to the EC2 instance at spin-up
+import boto3 
+
+def get_gif_from_s3(bucket: str,
+                    object_name: str):
+    s3 = boto3.client('s3')
+    s3.download_file(bucket, object_name, object_name)
+
+def upload_gif_to_s3(bucket: str,
+                     object_name: str):
+    s3 = boto3.client('s3')
+    s3.upload_file(object_name, bucket, object_name, ExtraArgs={'ACL': 'public-read'})
+    s3_path = f"https://s3-eu-west-1.amazonaws.com/{bucket}/{object_name}" 
+    return s3_path
+
 def fix_img(img: np.array) -> np.array:
     if len(img.shape) > 2 and img.shape[2] == 4:
       img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)

@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from prototypes.styletransfer.model import StyleTransfer, gram_matrix, LossWeights, make_blog_style_transfer
 import tensorflow.contrib.eager as tfe
-from prototypes.styletransfer.videos import extract_frames_from_gif, make_gif
+from prototypes.styletransfer.videos import extract_frames_from_gif, make_gif, get_gif_from_s3, upload_gif_to_s3
 import os
 
 
@@ -74,6 +74,22 @@ def test_save_gif():
 
     assert os.path.isfile("./gif.gif") == True
     assert os.stat("./gif.gif").st_size != 0
+
+def test_from_s3_to_s3():
+    get_gif_from_s3("style-transfer-webapptest", "no_god_no.gif")
+    assert os.path.isfile("./no_god_no.gif") == True
+
+    gif = extract_frames_from_gif("no_god_no.gif")
+    gif = gif[:15]
+    style_img = _sample_img(512)
+
+    model = make_blog_style_transfer()
+    transferred = model.run_style_transfer_video(frames=gif, style_img=style_img)
+
+    make_gif(transferred)
+    s3_path = upload_gif_to_s3("visualneurons.com-gifs", "gif.gif")
+
+    assert "https://s3-eu-west-1.amazonaws.com/visualneurons.com-gifs/gif.gif" == s3_path
 
 def test_run_styletransfer():
     content_img = _sample_img(512)
