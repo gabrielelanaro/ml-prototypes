@@ -24,7 +24,7 @@ def spin_up_ec2(ec2_object, instance_type, script):
             SecurityGroups=[
                 "transfer-learning",
             ],
-            IamInstanceProfile={"Arn": "arn:aws:iam::257446244580:role/TransferLearningEC2Role"}, # this is needed to give EC2 the right permissions
+            IamInstanceProfile={"Name": "TransferLearningEC2Role"}, # this is needed to give EC2 the right permissions
             InstanceInitiatedShutdownBehavior='terminate', # make shutdown in script terminate ec2
             UserData=script # file to run on instance init.
         )
