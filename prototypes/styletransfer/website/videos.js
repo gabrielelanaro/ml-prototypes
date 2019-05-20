@@ -87,7 +87,7 @@ button.addEventListener('click', function() {
 
         results.textContent = '';
         clean_email = email.replace(/[^a-zA-Z0-9]/g, '')
-        var objKey = clean_email + '_' + file.name;
+        var objKey = clean_email + '_' + file.name.replace(/[^a-zA-Z0-9]/g, '').replace(' ', '').replace('gif', '.gif');
         var params = {
             Key: objKey,
             ContentType: file.type,
