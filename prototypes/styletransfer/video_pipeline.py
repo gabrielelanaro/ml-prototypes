@@ -10,14 +10,14 @@ def run_video_pipeline(object_name):
     get_gif_from_s3("visualneurons.com-videos", object_name)
 
     gif = extract_frames_from_gif(object_name)
-    gif = gif[:15]
+    # gif = gif[:15]
     style_img = load_image(style)
     style_img = fix_img(style_img)
 
     model = make_blog_style_transfer()  
-    transferred = model.run_style_transfer_video(frames=gif, style_img=style_img)
+    transferred = model.run_style_transfer_video(frames=gif, style_img=style_img, num_iterations=30)
 
-    make_gif(transferred, gif_name=object_name.replace(".gif", "_styled.gif"))
+    make_gif(transferred, gif_name=object_name.replace(".gif", "_styled.gif"), fps=5)
     s3_path = upload_gif_to_s3("visualneurons.com-gifs", object_name.replace(".gif", "_styled.gif"))
 
     send_email_to_user(email, s3_path, style)

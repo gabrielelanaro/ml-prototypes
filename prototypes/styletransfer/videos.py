@@ -151,9 +151,10 @@ def save_frames_to_disk(images: List[np.array],
 
 def make_gif(images: List[np.array], 
              directory: str = "./transferred", 
-             gif_name: str = "gif.gif"):
+             gif_name: str = "gif.gif",
+             fps: int = 24):
     save_frames_to_disk(images, directory)
-    subprocess.run(["ffmpeg", "-y", "-f", "image2", "-framerate", "15", "-i", f"{directory}/frame%d.jpeg", f"{gif_name}"])
+    subprocess.run(["ffmpeg", "-y", "-f", "image2", "-framerate", f"{fps}", "-i", f"{directory}/frame%d.jpeg", f"{gif_name}"])
 
 def make_video(images: List[np.array], 
                save_to: str, 
