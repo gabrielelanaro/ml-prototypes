@@ -14,23 +14,20 @@ client = boto3.client('ses', region_name=AWS_REGION)
 
 def spin_up_ec2(ec2_object, instance_type, script):
 
-    try:
-        instance = ec2_object.run_instances(
-            ImageId=AMI,
-            InstanceType=instance_type,
-            MinCount=1,
-            MaxCount=1,
-            KeyName="GabKP",
-            SecurityGroups=[
-                "transfer-learning",
-            ],
-            IamInstanceProfile={"Name": "TransferLearningEC2Role"}, # this is needed to give EC2 the right permissions
-            InstanceInitiatedShutdownBehavior='terminate', # make shutdown in script terminate ec2
-            UserData=script # file to run on instance init.
+    
+    instance = ec2_object.run_instances(
+        ImageId=AMI,
+        InstanceType=instance_type,
+        MinCount=1,
+        MaxCount=1,
+        KeyName="FraDeepLearn",
+        SecurityGroups=[
+            "transfer-learning",
+        ],
+        IamInstanceProfile={"Name": "TransferLearningEC2Role"}, # this is needed to give EC2 the right permissions
+        InstanceInitiatedShutdownBehavior='terminate', # make shutdown in script terminate ec2
+        UserData=script # file to run on instance init.
         )
-
-    except ClientError:
-        instance = None
 
     return instance
 
@@ -92,6 +89,15 @@ def lambda_handler(event, context):
 cd /home/ubuntu
 cd ml-prototypes
 git pull
+shutdown -h +30
+# Necessary to being able to load all the necessary environment
+sudo -i -u ubuntu bash <<-EOF
+source ~/.bashrc
+source activate tensorflow_p36
+export PYTHONPATH=/home/ubuntu/ml-prototypes
+python /home/ubuntu/ml-prototypes/prototypes/styletransfer/video_pipeline.py {key}
+EOF
+shutdown -h now
     """
     
     for INSTANCE_TYPE in available_instances:
