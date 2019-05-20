@@ -12,7 +12,7 @@ function choose(choices) {
     return choices[index];
 }
 
-window.onload = loadImageInCanvas(choose(answers), document.getElementById('style_img'))
+window.onload = loadImageInCanvas("VanGogh.png", document.getElementById('style_img'))
 
 document.getElementById('style_choice').onchange = function(e) {
     loadImageInCanvas(document.getElementById("style_choice").value, document.getElementById('style_img'));
