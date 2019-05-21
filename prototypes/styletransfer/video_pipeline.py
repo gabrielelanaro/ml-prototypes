@@ -15,7 +15,7 @@ def run_video_pipeline(object_name):
     style_img = fix_img(style_img)
 
     model = make_blog_style_transfer()  
-    transferred = model.run_style_transfer_video(frames=gif, style_img=style_img, num_iterations=20)
+    transferred = model.run_style_transfer_video(frames=gif, style_img=style_img, num_iterations=30)
 
     make_gif(transferred, gif_name=object_name.replace(".gif", "_styled.gif"), fps=20)
     s3_path = upload_gif_to_s3("visualneurons.com-gifs", object_name.replace(".gif", "_styled.gif"))
