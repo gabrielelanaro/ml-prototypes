@@ -132,7 +132,7 @@ def extract_frames_from_gif(gif_path: str) -> List[np.array]:
     subprocess.run(["ffmpeg", "-i",  f"{gif_path}", f"{directory}/frame%05d.png"])
 
     frames = []
-    for img_name in os.listdir(directory):
+    for img_name in sorted(os.listdir(directory)):
         img_path = os.path.join(directory, img_name)
         img = Image.open(img_path)
         img = np.array(img)
