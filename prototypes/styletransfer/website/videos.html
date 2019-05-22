@@ -31,7 +31,7 @@
     <div class="style-image">
         <canvas id="style_img" height="300"></canvas>
     </div>
-    <h3>Choose a GIF to style </h3>
+    <h3>Choose a GIF to style <a href="#footnote1">[*]</a></h3>
     <input type="file" class="buttons" accept="image/gif" id="file-chooser" />
     </br>
     </br>
@@ -45,7 +45,11 @@
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.0/jquery.min.js"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
     <script src="videos.js"></script>
-
+    <p id="footnote1">By clicking the <b>Run Style Transfer</b> button you upload your GIF to S3. </br>
+        This is when we send you a first <b>email</b> confirming we correctly ingested </br>
+        the file. You will receive a second one, with the link to the styled GIF, </br>
+        when the AWS Deep Learning magic is done.
+    </p>
 </body>
 
 </html>
