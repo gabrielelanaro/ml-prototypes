@@ -42,12 +42,12 @@ def test_data(dl, ds, bs, size):
     i,c,s = next(iter(dl['train']))
     assert i.shape[0] == bs
     assert i.shape[1] == 3
-    assert i.shape[2] == i.shape[3] == size 
+    assert i.shape[2] == i.shape[3] == (size+35*2) 
 
     i,c,s = next(iter(dl['valid']))
     assert i.shape[0] == bs
     assert i.shape[1] == 3
-    assert i.shape[2] == i.shape[3] == size 
+    assert i.shape[2] == i.shape[3] == (size+35*2) 
 
 def test_deprocess(ds_item):
     denorm = DeProcess(imagenet_stats)
@@ -274,7 +274,7 @@ class Normalize(Transform):
     
     def normalize(self, item): return item.sub_(self.mean[:, None, None]).div_(self.std[:, None, None])
     
-    def __call__(self, item): return {k: self.normalize(v) for k, v in item.items()}
+    def __call__(self, item): return {k: nn.functional.pad(self.normalize(v), (35,35), 'constant') for k, v in item.items()}
     
 class PilRandomDihedral(Transform):
     _order=15
@@ -301,7 +301,7 @@ class DeProcess(Transform):
         if isinstance(item, dict): return {k: self.de_process(v) for k, v in item.items()}
         
 #################################################
-# RESNETUNET
+# RESNET UNET
 #################################################
 
 def convrelu(in_channels, out_channels, kernel, padding):
@@ -382,12 +382,12 @@ class ResNetUNet(nn.Module):
         return out        
 
 #################################################
-# TRANSFORMERNET
+# TRANSFORMER NET
 #################################################
 
 class TransformerNet(torch.nn.Module):
     def __init__(self):
-        super(TransformerNet, self).__init__()
+        super().__init__()
         # Initial convolution layers
         self.conv1 = ConvLayer(3, 32, kernel_size=9, stride=1)
         self.in1 = torch.nn.InstanceNorm2d(32, affine=True)
@@ -484,11 +484,11 @@ class UpsampleConvLayer(torch.nn.Module):
 #################################################
 
 class FastStyleTransfer():
-    def __init__(self, dl, model, opt, sched=None, style_weight=1e10, content_weight=1e5, tv_weight=1e5):
+    def __init__(self, dl, model, opt, sched=None, style_weight=1e10, content_weight=1e5, tv_weight=None):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.mseloss = nn.MSELoss()
         self.init_vgg()
-        self.convs = [i-3 for i,o in enumerate(list(self.vgg.features)) if isinstance(o,nn.MaxPool2d)]
+        self.convs = [i-2 for i,o in enumerate(list(self.vgg.features)) if isinstance(o,nn.MaxPool2d)]
         self.model = model.to(self.device)
         self.original_model = model.to(self.device)
         self.opt = opt
@@ -502,7 +502,7 @@ class FastStyleTransfer():
         self.training_done = False
         
     def init_vgg(self):
-        self.vgg = models.vgg16_bn(pretrained=True).to(self.device)
+        self.vgg = models.vgg16(pretrained=True).to(self.device)
         self.vgg.eval()
     
     def reinitialize_unet(self): self.model = copy.deepcopy(self.original_model)
@@ -521,12 +521,12 @@ class FastStyleTransfer():
 
     def gram_mse_loss(self, input, target): return self.mseloss(gram(input), gram(target))
 
-    def get_tv_loss(self, input):
-        l = (torch.sum(torch.abs(input[:, :, :, :-1] - input[:, :, :, 1:])) + 
-             torch.sum(torch.abs(input[:, :, :-1, :] - input[:, :, 1:, :])))
+    def tv_loss(self):
+        l = (torch.sum(torch.abs(self.inputs[:, :, :, :-1] - self.inputs[:, :, :, 1:])) + 
+             torch.sum(torch.abs(self.inputs[:, :, :-1, :] - self.inputs[:, :, 1:, :])))
         return l
     
-    def combined_loss(self, c2s=1.0, input=None):
+    def combined_loss(self, c2s=1.0):
         style_losses = [self.gram_mse_loss(o, s) for o,s in zip(self.input_act, self.style_act)]
         
         #content_losses = [content_mse(o, s) for o,s in zip(opt_cat, target_cont)]
@@ -535,13 +535,13 @@ class FastStyleTransfer():
         style = sum(style_losses) * c2s * self.style_weight
         content = sum(content_losses) * self.content_weight
         loss = content + style
-        if input: loss += self.tv_loss(input) * self.tv_weight
+        if self.tv_weight is not None: loss += self.tv_loss() * self.tv_weight
         return loss, content, style
     
-    def store_metrics(self, phase, epoch, i, inputs):
+    def store_metrics(self, phase, epoch, i):
         self.metrics[phase]['epoch'] += [epoch]
         self.metrics[phase]['batch'] += [i]
-        self.metrics[phase]['batch_size'] += [inputs.size(0)]
+        self.metrics[phase]['batch_size'] += [self.inputs.size(0)]
         self.metrics[phase]['total_loss'] += [self.loss.cpu().detach().numpy()]
         self.metrics[phase]['content_loss'] += [self.content_loss.cpu().detach().numpy()]
         self.metrics[phase]['style_loss'] += [self.style_loss.cpu().detach().numpy()]
@@ -592,7 +592,7 @@ class FastStyleTransfer():
         plt.subplots_adjust(wspace=0.01, hspace=0.01)
         plt.show()
     
-    def train(self, num_epochs=3, print_every=1000, plot=False):
+    def train(self, num_epochs=1, print_every=1000, plot=False):
         if not self.hooks_initialized: self.initialize_hooks()
         self.metrics =  defaultdict(lambda: defaultdict(list))
         #c2s = content2style(dataloaders)
@@ -601,7 +601,7 @@ class FastStyleTransfer():
             since = time.time()
 
             for phase in ['train', 'valid']:
-                print(f'Phase: {phase}')
+                print(f'\nPhase: {phase}')
                 if phase == 'train':
                     if self.sched is not None:
                         self.sched.step()
@@ -621,10 +621,10 @@ class FastStyleTransfer():
                 progress = tqdm(enumerate(self.dl[phase]), desc="Loss: ", total=len(self.dl[phase]))
                 
                 for i, (inputs, contents, styles) in progress:
-                    inputs = inputs.to(self.device)
+                    self.inputs = inputs.to(self.device)
                     contents = contents.to(self.device)
                     styles = styles.to(self.device)
-                    if i % print_every == 0: print(f'batch: {i}: (input, content, style) = {inputs.shape}, {contents.shape}, {styles.shape}')
+                    if i % print_every == 0: print(f'batch: {i}: (input, content, style) = {self.inputs.shape}, {contents.shape}, {styles.shape}')
 
                     self.vgg(contents)
                     self.content_act = [o.features.clone().detach_().to(self.device) for o in self.act]
@@ -636,12 +636,12 @@ class FastStyleTransfer():
                     self.opt.zero_grad()
 
                     with torch.set_grad_enabled(phase == 'train'):
-                        outputs = self.model(inputs)
+                        outputs = self.model(self.inputs)
                         self.vgg(outputs)
                         self.input_act = [o.features.clone().to(self.device) for o in self.act]
-                        #tv_loss = get_tv_loss(contents)
+                
                         self.loss, self.content_loss, self.style_loss = self.combined_loss()
-                        self.store_metrics(phase, epoch, i, inputs)
+                        self.store_metrics(phase, epoch, i)
                         
                         if phase == 'train':
                             self.loss.backward()
