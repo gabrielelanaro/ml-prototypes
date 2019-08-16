@@ -32,7 +32,7 @@ else:
 # UNIT TESTS
 #################################################
     
-def test_data(dl, ds, bs, size):
+def test_data(dl, ds, bs, size, p=0):
     assert dl['train'].dataset == ds['train']
     assert dl['valid'].dataset == ds['valid']
     
@@ -42,16 +42,17 @@ def test_data(dl, ds, bs, size):
     i,c,s = next(iter(dl['train']))
     assert i.shape[0] == bs
     assert i.shape[1] == 3
-    assert i.shape[2] == i.shape[3] == (size+35*2) 
+    assert i.shape[2] == i.shape[3] == (size+p*2) 
 
     i,c,s = next(iter(dl['valid']))
     assert i.shape[0] == bs
     assert i.shape[1] == 3
-    assert i.shape[2] == i.shape[3] == (size+35*2) 
+    assert i.shape[2] == i.shape[3] == (size+p*2) 
 
-def test_deprocess(ds_item):
-    denorm = DeProcess(imagenet_stats)
+def test_deprocess(ds_item, size, p):
+    denorm = DeProcess(imagenet_stats, size, p)
     d = denorm(ds_item)
+    print('shape of re-center-cropped image:', d[0].shape)
     return PIL.Image.fromarray(d[random.choice([0,1,2])])    
 
 def test_hooks(model, dl, bs):
@@ -92,10 +93,13 @@ def test_losses(model, dl):
 
     fst.vgg(i)
     input_act = [o.features.clone().detach_().to(fst.device) for o in fst.act]
+    print([o.shape for o in input_act])
     fst.vgg(c)
     content_act = [o.features.clone().detach_().to(fst.device) for o in fst.act]
+    print([o.shape for o in content_act])
     fst.vgg(s)
     style_act = [o.features.clone().detach_().to(fst.device) for o in fst.act]
+    print([o.shape for o in style_act])
     
     co_loss = fst.content_mse(input_act[0], content_act[0])
     assert isinstance(co_loss, torch.Tensor)
@@ -268,15 +272,16 @@ class ToFloatTensor(Transform):
     
 class Normalize(Transform):
     _order=40
-    def __init__(self, stats, p):
+    def __init__(self, stats, p=None):
         self.mean = torch.as_tensor(stats[0] , dtype=torch.float32)
         self.std = torch.as_tensor(stats[1] , dtype=torch.float32)
+        self.p = p
     
     def normalize(self, item): return item.sub_(self.mean[:, None, None]).div_(self.std[:, None, None])
-    def pad(self, item): return nn.functional.pad(item[None], pad=(p,p,p,p), mode='replicate').squeeze(0)
+    def pad(self, item): return nn.functional.pad(item[None], pad=(self.p,self.p,self.p,self.p), mode='replicate').squeeze(0)
     
     def __call__(self, item): 
-        if p is not None: return {k: self.pad(self.normalize(v)) for k, v in item.items()}
+        if self.p is not None: return {k: self.pad(self.normalize(v)) for k, v in item.items()}
         else: return {k: self.normalize(v) for k, v in item.items()}
     
 class PilRandomDihedral(Transform):
@@ -289,15 +294,24 @@ class PilRandomDihedral(Transform):
     
 class DeProcess(Transform):
     _order=50
-    def __init__(self, stats):
+    def __init__(self, stats, size=None, p=None):
         self.mean = torch.as_tensor(stats[0] , dtype=torch.float32)
         self.std = torch.as_tensor(stats[1] , dtype=torch.float32)
+        self.size = size
+        self.p = p
     
     def de_normalize(self, item): return (item*self.std[:, None, None]+self.mean[:, None, None])*255.
     def rearrange_axis(self, item): return np.moveaxis(item, 0, -1)
     def to_np(self, item): return np.uint8(np.array(item))
-    def de_process(self, item): return self.rearrange_axis(self.to_np(self.de_normalize(item)))
-    
+    def crop(self, item):
+        left, top, right, bottom = self.p, self.p, self.p+self.size, self.p+self.size
+        return item[self.p:self.p+self.size,self.p:self.p+self.size,:]
+    def de_process(self, item): 
+        if self.size is not None and self.p is not None:
+            return self.crop(self.rearrange_axis(self.to_np(self.de_normalize(item))))
+        else:
+            return self.rearrange_axis(self.to_np(self.de_normalize(item)))
+                
     def __call__(self, item): 
         if isinstance(item, torch.Tensor): return self.de_process(item) 
         if isinstance(item, tuple): return tuple([self.de_process(v) for v in item])
@@ -583,7 +597,7 @@ class FastStyleTransfer():
     def plot_samples(self, phase):
         ds = self.dl[phase].dataset
         idx = random.sample(range(len(ds)), 3)
-        denorm = DeProcess(imagenet_stats)
+        denorm = DeProcess(imagenet_stats, self.size, self.p)
         items = [denorm((self.run_st(ds[i][0]), *ds[i][1:])) for i in idx]
 
         fig, axes = plt.subplots(3,3, figsize=(8,8))
