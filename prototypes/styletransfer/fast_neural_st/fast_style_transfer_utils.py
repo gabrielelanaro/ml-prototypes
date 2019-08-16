@@ -93,13 +93,13 @@ def test_losses(model, dl):
 
     fst.vgg(i)
     input_act = [o.features.clone().detach_().to(fst.device) for o in fst.act]
-    print([o.shape for o in input_act])
+    print('shape of input_act: ', [o.shape for o in input_act])
     fst.vgg(c)
     content_act = [o.features.clone().detach_().to(fst.device) for o in fst.act]
-    print([o.shape for o in content_act])
+    print('shape of content_act: ', [o.shape for o in content_act])
     fst.vgg(s)
     style_act = [o.features.clone().detach_().to(fst.device) for o in fst.act]
-    print([o.shape for o in style_act])
+    print('shape of style_act: ', [o.shape for o in style_act])
     
     co_loss = fst.content_mse(input_act[0], content_act[0])
     assert isinstance(co_loss, torch.Tensor)
@@ -303,9 +303,7 @@ class DeProcess(Transform):
     def de_normalize(self, item): return (item*self.std[:, None, None]+self.mean[:, None, None])*255.
     def rearrange_axis(self, item): return np.moveaxis(item, 0, -1)
     def to_np(self, item): return np.uint8(np.array(item))
-    def crop(self, item):
-        left, top, right, bottom = self.p, self.p, self.p+self.size, self.p+self.size
-        return item[self.p:self.p+self.size,self.p:self.p+self.size,:]
+    def crop(self, item): return item[self.p:self.p+self.size,self.p:self.p+self.size,:]
     def de_process(self, item): 
         if self.size is not None and self.p is not None:
             return self.crop(self.rearrange_axis(self.to_np(self.de_normalize(item))))
@@ -501,7 +499,7 @@ class UpsampleConvLayer(torch.nn.Module):
 #################################################
 
 class FastStyleTransfer():
-    def __init__(self, dl, model, opt, sched=None, style_weight=1e10, content_weight=1e5, tv_weight=None):
+    def __init__(self, dl, model, opt, sched=None, style_weight=1e10, content_weight=1e5, tv_weight=None, size=256, p=30):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.mseloss = nn.MSELoss()
         self.init_vgg()
@@ -517,6 +515,8 @@ class FastStyleTransfer():
         self.initialize_hooks()
         self.style_act = None
         self.training_done = False
+        self.size = size
+        self.p = p
         
     def init_vgg(self):
         self.vgg = models.vgg16(pretrained=True).to(self.device)
