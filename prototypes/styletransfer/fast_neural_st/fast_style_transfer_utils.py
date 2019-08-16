@@ -268,13 +268,16 @@ class ToFloatTensor(Transform):
     
 class Normalize(Transform):
     _order=40
-    def __init__(self, stats):
+    def __init__(self, stats, p):
         self.mean = torch.as_tensor(stats[0] , dtype=torch.float32)
         self.std = torch.as_tensor(stats[1] , dtype=torch.float32)
     
     def normalize(self, item): return item.sub_(self.mean[:, None, None]).div_(self.std[:, None, None])
+    def pad(self, item): return nn.functional.pad(item[None], pad=(p,p,p,p), mode='replicate').squeeze(0)
     
-    def __call__(self, item): return {k: nn.functional.pad(self.normalize(v), (35,35), 'constant') for k, v in item.items()}
+    def __call__(self, item): 
+        if p is not None: return {k: self.pad(self.normalize(v)) for k, v in item.items()}
+        else: return {k: self.normalize(v) for k, v in item.items()}
     
 class PilRandomDihedral(Transform):
     _order=15
