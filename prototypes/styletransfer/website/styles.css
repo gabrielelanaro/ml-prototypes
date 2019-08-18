@@ -24,10 +24,10 @@
     background-color: #ffc477;
 }
 
-.buttons:active {
+/*.buttons:active {
     position: relative;
     top: 1px;
-}
+}*/
 
 span {
     font-size: 120%;

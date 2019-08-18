@@ -49,10 +49,11 @@ document.getElementById("st").onclick = function() {
                     //try again
                     $.ajax(this);
                     return;
-                }            
+                }
+                document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";            
                 return;
             }
-            document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";
+            
         }
     });
 }
