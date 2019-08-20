@@ -503,7 +503,7 @@ class FastStyleTransfer():
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.mseloss = nn.MSELoss()
         self.init_vgg()
-        self.convs = [i-2 for i,o in enumerate(list(self.vgg.features)) if isinstance(o,nn.MaxPool2d)]
+        self.convs = [i-2 for i,o in enumerate(list(self.vgg.features)) if isinstance(o,nn.MaxPool2d)][:-1]
         self.model = model.to(self.device)
         self.original_model = model.to(self.device)
         self.opt = opt
