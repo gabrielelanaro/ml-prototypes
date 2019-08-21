@@ -1,5 +1,5 @@
 var API_ENDPOINT = "https://qgu3stesgg.execute-api.eu-west-1.amazonaws.com/dev"
-var ITERATIONS = 300
+var ITERATIONS = 200
 
 var answers = ["The_Scream.jpg",
     "The_Scream.jpg",
@@ -35,11 +35,25 @@ document.getElementById("st").onclick = function() {
         url: API_ENDPOINT,
         type: 'POST',
         crossDomain: true,
+        tryCount : 0,
+        retryLimit : 3,
         dataType: 'json',
         contentType: "application/json",
         success: openStyleTransferSocket,
         error: function(xhr, status, error) {
-            document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";
+            console.log("AJAX status:" + status)
+            console.log("retry " + this.tryCount + " of " + this.retryLimit)
+            if (status == 'error') {
+                this.tryCount++;
+                if (this.tryCount <= this.retryLimit) {
+                    //try again
+                    $.ajax(this);
+                    return;
+                }
+                document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";            
+                return;
+            }
+            
         }
     });
 }
@@ -93,7 +107,7 @@ function openStyleTransferSocket(response) {
                 setTimeout(setupWebSocket, waitTime);
             } else {
                 // Ok we give up and we invoke the handler's error callback instead.
-                document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";
+                //document.getElementById("limit").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";
                 webSocketHandler.onerror = function(e) { webSocketHandler.onerror(webSocket, e) };
             }
         };
