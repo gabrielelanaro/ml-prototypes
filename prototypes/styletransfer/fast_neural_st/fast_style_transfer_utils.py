@@ -184,6 +184,29 @@ def content2style(dataloaders): # NOT WORKING! TO BE REFACTORED
     
     for sf in activations: sf.close()
     return content/(style+1)
+                
+def build_style_dataframe(path, style):
+    content_path = path/'coco-images'/'test2015'
+    image_extensions = set(k for k,v in mimetypes.types_map.items() if v.startswith('image/'))
+    files = get_files(content_path, image_extensions, recurse=True)
+    assert len(files) == 81434
+    
+    style_path = path/'styles'/style
+    contents = files
+    styles = [style_path] * len(contents)
+    assert len(styles) == 81434
+    
+    te_ = int(len(styles) * 0.001)
+    tr_ = len(styles) - te_
+    assert(len(styles) == (te_+tr_))
+    print(f'Files in validation set: {te_}; Files in training set {tr_}')
+    splits = ['valid'] * te_ + ['train'] * tr_ 
+    shuffle(splits)
+    
+    df = pd.DataFrame({'content_': contents, 'style_': styles, 'split_': splits})
+    assert len(df) == 81434
+    
+    df.to_csv(path/f'{style[:-4]}.csv', index=False)
 
 #################################################
 # DATASETS & DATALOADERS
