@@ -63,7 +63,7 @@ def test_hooks(model, dl, bs):
     i = i.to(fst.device)
     c = c.to(fst.device)
     s = s.to(fst.device)
-    assert torch.allclose(i, c)
+    assert torch.allclose(i, c) == True
     assert torch.allclose(i, s) == False
 
     fst.vgg(i)
@@ -88,7 +88,7 @@ def test_losses(model, dl):
     i = i.to(fst.device)
     c = c.to(fst.device)
     s = s.to(fst.device)
-    assert torch.allclose(i, c)
+    #assert torch.allclose(i, c)
     assert torch.allclose(i, s) == False
 
     fst.vgg(i)
@@ -224,7 +224,7 @@ class StyleTransferDataset(Dataset):
         
         #opt_img = np.random.uniform(0, 1, size=(content_img.size + (3,))).astype(np.float32)
         #opt_img = ndimage.filters.median_filter(opt_img, [8,8,1])
-        #item = {'input': content_img, #PIL.Image.fromarray(np.uint8(opt_img*255)),
+        #item = {'input': PIL.Image.fromarray(np.uint8(opt_img*255)),
         #        'content': content_img, 
         #        'style': style_img}
         
@@ -499,11 +499,11 @@ class UpsampleConvLayer(torch.nn.Module):
 #################################################
 
 class FastStyleTransfer():
-    def __init__(self, dl, model, opt, sched=None, style_weight=1e10, content_weight=1e5, tv_weight=None, size=256, p=30):
+    def __init__(self, dl, model, opt, sched=None, style_weight=1e10, content_weight=1e5, tv_weight=None, size=256, p=30, vgg=16):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.mseloss = nn.MSELoss()
-        self.init_vgg()
-        self.convs = [i-2 for i,o in enumerate(list(self.vgg.features)) if isinstance(o,nn.MaxPool2d)][:-1]
+        self.init_vgg(vgg)
+        self.convs = [i-2 for i,o in enumerate(list(self.vgg.features)) if isinstance(o,nn.MaxPool2d)]
         self.model = model.to(self.device)
         self.original_model = model.to(self.device)
         self.opt = opt
@@ -518,8 +518,9 @@ class FastStyleTransfer():
         self.size = size
         self.p = p
         
-    def init_vgg(self):
-        self.vgg = models.vgg16(pretrained=True).to(self.device)
+    def init_vgg(self, vgg):
+        if vgg==16: self.vgg = models.vgg16(pretrained=True).to(self.device)
+        if vgg==19: self.vgg = models.vgg19(pretrained=True).to(self.device)
         self.vgg.eval()
     
     def reinitialize_unet(self): self.model = copy.deepcopy(self.original_model)
