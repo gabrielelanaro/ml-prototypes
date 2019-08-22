@@ -110,7 +110,8 @@ def test_losses(model, dl):
     fst.input_act = input_act
     fst.content_act = content_act
     fst.style_act = style_act
-    loss, content, style = fst.combined_loss()
+    fst.inputs = i
+    loss, content, style, tv = fst.combined_loss()
     assert isinstance(st_loss, torch.Tensor)
     fst.close_hooks()
     assert fst.hooks_initialized == False
@@ -155,36 +156,7 @@ def gram(input):
     b,c,h,w = input.size()
     x = input.view(b*c, -1)
     return torch.mm(x, x.t())/input.numel() #*1e6
-    
-def content2style(dataloaders): # NOT WORKING! TO BE REFACTORED
-    activations = [SaveFeatures(list(vgg.features)[idx]) for idx in convs]
-    content = 0
-    style = 0
-    for i, (inputs, contents, styles) in enumerate(dataloaders['train']):
-        if i == 4: break
-        
-        inputs = inputs.to(device)
-        contents = contents.to(device)
-        styles = styles.to(device)
-
-        vgg(contents)
-        target_cont = [o.features.clone().detach_().to(device) for o in activations]
-
-        vgg(styles)
-        target_style = [o.features.clone().detach_().to(device) for o in activations]
-
-        outputs = model(inputs)
-        vgg(outputs)
-        opt_cat = [o.features.clone().to(device) for o in activations]
-
-        _, content_loss, style_loss = combined_loss(opt_cat, target_style, target_cont)
-        
-        content += content_loss.cpu().detach().numpy()
-        style += style_loss.cpu().detach().numpy()
-    
-    for sf in activations: sf.close()
-    return content/(style+1)
-                
+                    
 def build_style_dataframe(path, style):
     content_path = path/'coco-images'/'test2015'
     image_extensions = set(k for k,v in mimetypes.types_map.items() if v.startswith('image/'))
@@ -522,7 +494,9 @@ class UpsampleConvLayer(torch.nn.Module):
 #################################################
 
 class FastStyleTransfer():
-    def __init__(self, dl, model, opt, sched=None, style_weight=1e10, content_weight=1e5, tv_weight=None, size=256, p=30, vgg=16):
+    def __init__(self, dl, model, opt, sched=None, c2s=1.0, s2t=1.0,
+                 style_weight=1.0, content_weight=1.0, 
+                 tv_weight=1.0, size=256, p=30, vgg=16):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.mseloss = nn.MSELoss()
         self.init_vgg(vgg)
@@ -540,6 +514,8 @@ class FastStyleTransfer():
         self.training_done = False
         self.size = size
         self.p = p
+        self.c2s = c2s
+        self.s2t = s2t
         
     def init_vgg(self, vgg):
         if vgg==16: self.vgg = models.vgg16(pretrained=True).to(self.device)
@@ -567,17 +543,21 @@ class FastStyleTransfer():
              torch.sum(torch.abs(self.inputs[:, :, :-1, :] - self.inputs[:, :, 1:, :])))
         return l
     
-    def combined_loss(self, c2s=1.0):
+    def combined_loss(self):
         style_losses = [self.gram_mse_loss(o, s) for o,s in zip(self.input_act, self.style_act)]
         
         #content_losses = [content_mse(o, s) for o,s in zip(opt_cat, target_cont)]
         content_losses = [self.content_mse(self.input_act[2], self.content_act[2])]
         
-        style = sum(style_losses) * c2s * self.style_weight
+        style = sum(style_losses) * self.style_weight * self.c2s
         content = sum(content_losses) * self.content_weight
         loss = content + style
-        if self.tv_weight is not None: loss += self.tv_loss() * self.tv_weight
-        return loss, content, style
+        if self.tv_weight is None: 
+            tv = None
+        else:
+            tv = self.tv_loss() * self.tv_weight * self.s2t
+            loss += tv
+        return loss, content, style, tv
     
     def store_metrics(self, phase, epoch, i):
         self.metrics[phase]['epoch'] += [epoch]
@@ -586,6 +566,7 @@ class FastStyleTransfer():
         self.metrics[phase]['total_loss'] += [self.loss.cpu().detach().numpy()]
         self.metrics[phase]['content_loss'] += [self.content_loss.cpu().detach().numpy()]
         self.metrics[phase]['style_loss'] += [self.style_loss.cpu().detach().numpy()]
+        self.metrics[phase]['tv_loss'] += [0 if self.tv_weight is None else self.tv.cpu().detach().numpy()]
         
     def get_epoch_loss(self, phase):
         d = pd.DataFrame(self.metrics[phase])
@@ -599,19 +580,24 @@ class FastStyleTransfer():
         df['total'] = df.total_loss/df.batch_size
         df['content'] = df.content_loss/df.batch_size
         df['style'] = df.style_loss/df.batch_size
+        if self.tv_weight is not None: df['tv'] = df.tv_loss/df.batch_size
         return df
 
-    def plot_losses(self, phase, group=20):
+    def plot_losses(self, phase, group=20, ylim=None):
         df = self.get_metrics(phase)
+        df = df.head(len(df)-1)
         df[f'{group}-batch-average'] = df.batch // group
-        df = df.groupby(f'{group}-batch-average')['total','content','style'].sum().reset_index()
+        y = ['total','content','style']
+        if self.tv_weight is not None: y += ['tv']
+        df = df.groupby(f'{group}-batch-average')[y].sum().reset_index()
         m = df.total.mean()
         s = df.total.std()
         df['outlier'] = np.where(df.total < (m+3*s), False, True)
         
         x_axis = min(18, int(0.03*len(df)))
         fig, ax = plt.subplots(figsize=(x_axis, 5))
-        df.loc[df.outlier==False,:].plot(ax=ax, x=f'{group}-batch-average', y=['total', 'content', 'style'])
+        df.loc[df.outlier==False,:].plot(ax=ax, x=f'{group}-batch-average', y=y)
+        if ylim is not None: ax.set_ylim(ylim[0], ylim[1])
         plt.show()
 
     def run_st(self, tensor):
@@ -633,24 +619,24 @@ class FastStyleTransfer():
         plt.subplots_adjust(wspace=0.01, hspace=0.01)
         plt.show()
     
-    def train(self, num_epochs=1, print_every=1000, plot=False):
+    def train(self, num_epochs=1, plot=False, save=False, verbose=True):
         if not self.hooks_initialized: self.initialize_hooks()
         self.metrics =  defaultdict(lambda: defaultdict(list))
-        #c2s = content2style(dataloaders)
-
+        
         for epoch in tnrange(num_epochs, desc='Epoch'):
             since = time.time()
 
             for phase in ['train', 'valid']:
-                print(f'\nPhase: {phase}')
+                if verbose: print(f'\nPhase: {phase}')
                 if phase == 'train':
                     if self.sched is not None:
                         self.sched.step()
-                        for param_group in self.opt.param_groups:
-                            print("LR", param_group['lr'])
+                        if verbose: 
+                            for param_group in self.opt.param_groups: 
+                                print("LR", param_group['lr'])
                     
                     self.model.train() 
-                else:
+                if save:
                     self.model.eval()
                     save_model_filename = ["epoch", str(epoch),  
                                            str(time.ctime()).replace(' ', '_'), 
@@ -665,7 +651,7 @@ class FastStyleTransfer():
                     self.inputs = inputs.to(self.device)
                     contents = contents.to(self.device)
                     styles = styles.to(self.device)
-                    if i % print_every == 0: print(f'batch: {i}: (input, content, style) = {self.inputs.shape}, {contents.shape}, {styles.shape}')
+                    if i==0 and verbose==True: print(f'(input, content, style) = {self.inputs.shape}, {contents.shape}, {styles.shape}')
 
                     self.vgg(contents)
                     self.content_act = [o.features.clone().detach_().to(self.device) for o in self.act]
@@ -681,7 +667,7 @@ class FastStyleTransfer():
                         self.vgg(outputs)
                         self.input_act = [o.features.clone().to(self.device) for o in self.act]
                 
-                        self.loss, self.content_loss, self.style_loss = self.combined_loss()
+                        self.loss, self.content_loss, self.style_loss, self.tv = self.combined_loss()
                         self.store_metrics(phase, epoch, i)
                         
                         if phase == 'train':
@@ -691,12 +677,12 @@ class FastStyleTransfer():
                 epoch_loss = self.get_epoch_loss(phase)
                 progress.set_description("Loss: {:.4f}".format(epoch_loss))
                 if phase == 'train': 
-                    print(f"phase: {phase}, loss: {epoch_loss}")
+                    if verbose: print(f"phase: {phase}, loss: {epoch_loss}")
                     if plot: self.plot_losses(phase)
                 if plot: self.plot_samples(phase)
 
             time_elapsed = time.time() - since
-            print('{:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+            if verbose: print('{:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
 
         self.close_hooks()
         self.training_done = True
