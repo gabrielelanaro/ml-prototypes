@@ -179,7 +179,30 @@ def build_style_dataframe(path, style):
     assert len(df) == 81434
     
     df.to_csv(path/f'{style[:-4]}.csv', index=False)
+            
+def calc_loss_ratios(model, path, tmfs, size, bs):
+    c2s = []
+    c2t = []
+    for _ in range(3):
+        train_ds = StyleTransferDataset(path, train_test='train', transform=tmfs, sample=0.01)
+        valid_ds = StyleTransferDataset(path, train_test='valid', transform=tmfs, sample=0.5)
+        dataloaders = {'train': DataLoader(train_ds, batch_size=bs, shuffle=True),
+                       'valid': DataLoader(valid_ds, batch_size=bs)}
+        fst = FastStyleTransfer(dataloaders, *get_model_opt(model), size=size,
+                                c2s=1, c2t=1, tv_weight=1, content_weight=1, style_weight=1, vgg=19)
+        fst.train(verbose=False)
+        d = fst.get_metrics('train')
+        c2s.append(d['content'].mean()/d['style'].mean())
+        c2t.append(d['content'].mean()/d['tv'].mean())
+    
+    return np.array(c2s).mean(), np.array(c2t).mean()
 
+def get_model_opt(model, sched=None):
+    unet = model
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, unet.parameters()), lr=1e-3)
+    if sched: sched = lr_scheduler.CosineAnnealingLR(optimizer, 50)
+    return [unet, optimizer, sched]                
+                
 #################################################
 # DATASETS & DATALOADERS
 #################################################
@@ -494,7 +517,7 @@ class UpsampleConvLayer(torch.nn.Module):
 #################################################
 
 class FastStyleTransfer():
-    def __init__(self, dl, model, opt, sched=None, c2s=1.0, s2t=1.0,
+    def __init__(self, dl, model, opt, sched=None, c2s=1.0, c2t=1.0,
                  style_weight=1.0, content_weight=1.0, 
                  tv_weight=1.0, size=256, p=30, vgg=16):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -515,7 +538,7 @@ class FastStyleTransfer():
         self.size = size
         self.p = p
         self.c2s = c2s
-        self.s2t = s2t
+        self.c2t = c2t
         
     def init_vgg(self, vgg):
         if vgg==16: self.vgg = models.vgg16(pretrained=True).to(self.device)
@@ -555,7 +578,7 @@ class FastStyleTransfer():
         if self.tv_weight is None: 
             tv = None
         else:
-            tv = self.tv_loss() * self.tv_weight * self.s2t
+            tv = self.tv_loss() * self.tv_weight * self.c2t
             loss += tv
         return loss, content, style, tv
     
@@ -687,13 +710,7 @@ class FastStyleTransfer():
         self.close_hooks()
         self.training_done = True
         return
-    
-def get_model_opt(model, sched=None):
-    unet = model
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, unet.parameters()), lr=1e-3)
-    if sched: sched = lr_scheduler.CosineAnnealingLR(optimizer, 50)
-    return [unet, optimizer, sched]
-
+   
 #device = torch.device('cpu')
 #model = TheModelClass(*args, **kwargs)
 #model.load_state_dict(torch.load(PATH, map_location=device))
