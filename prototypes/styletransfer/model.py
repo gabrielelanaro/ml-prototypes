@@ -223,7 +223,7 @@ class StyleTransfer:
         style_img: np.array,
         num_iterations=1000,
         content_weight=1.0,
-        style_weight=1.0,
+        style_weight=1e-1,
         total_variation_weight=1.0
     ) -> Iterator[StyleTransferResult]:
         # We don't need to (or want to) train any layers of our model, so we set their
