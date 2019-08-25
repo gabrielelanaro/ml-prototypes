@@ -180,7 +180,7 @@ def build_style_dataframe(path, style):
     
     df.to_csv(path/f'{style[:-4]}.csv', index=False)
             
-def calc_loss_ratios(model, path, tmfs, size, bs):
+def calc_loss_ratios(model, path, tmfs, size, bs, vgg):
     c2s = []
     c2t = []
     for _ in range(3):
@@ -189,7 +189,7 @@ def calc_loss_ratios(model, path, tmfs, size, bs):
         dataloaders = {'train': DataLoader(train_ds, batch_size=bs, shuffle=True),
                        'valid': DataLoader(valid_ds, batch_size=bs)}
         fst = FastStyleTransfer(dataloaders, *get_model_opt(model), size=size,
-                                c2s=1, c2t=1, tv_weight=1, content_weight=1, style_weight=1, vgg=19)
+                                c2s=1, c2t=1, tv_weight=1, content_weight=1, style_weight=1, vgg=vgg)
         fst.train(verbose=False)
         d = fst.get_metrics('train')
         c2s.append(d['content'].mean()/d['style'].mean())
@@ -318,7 +318,7 @@ class DeProcess(Transform):
         self.size = size
         self.p = p
     
-    def de_normalize(self, item): return (item*self.std[:, None, None]+self.mean[:, None, None])*255.
+    def de_normalize(self, item): return ((item*self.std[:, None, None]+self.mean[:, None, None])*255.).clamp(0, 255)
     def rearrange_axis(self, item): return np.moveaxis(item, 0, -1)
     def to_np(self, item): return np.uint8(np.array(item))
     def crop(self, item): return item[self.p:self.p+self.size,self.p:self.p+self.size,:]
