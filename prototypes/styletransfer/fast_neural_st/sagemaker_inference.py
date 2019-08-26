@@ -11,6 +11,15 @@ from pathlib import Path
 from random import shuffle
 import torch.nn as nn
 import torch.optim as optim
+import io
+
+imagenet_stats = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+size = 300
+padding = 30
+
+#################################################
+# NETWORK
+#################################################
 
 class TransformerNet(torch.nn.Module):
     def __init__(self):
@@ -106,6 +115,85 @@ class UpsampleConvLayer(torch.nn.Module):
         out = self.conv2d(out)
         return out
 
+#################################################
+# IMAGE PROCESSING
+#################################################
+
+def compose(x, funcs, *args, order_key='_order', **kwargs):
+    key = lambda o: getattr(o, order_key, 0)
+    for f in sorted(list(funcs), key=key): x = f(x, **kwargs)
+    return x
+
+class Transform(): _order=0
+        
+class MakeRGB(Transform):
+    def __call__(self, item): return {k: v.convert('RGB') for k, v in item.items()}
+
+class ResizeFixed(Transform):
+    _order=10
+    def __init__(self, size):
+        if isinstance(size,int): size=(size,size)
+        self.size = size
+        
+    def __call__(self, item): return {k: v.resize(self.size, PIL.Image.BILINEAR) for k, v in item.items()}
+
+class ToByteTensor(Transform):
+    _order=20
+    def to_byte_tensor(self, item):
+        res = torch.ByteTensor(torch.ByteStorage.from_buffer(item.tobytes()))
+        w,h = item.size
+        return res.view(h,w,-1).permute(2,0,1)
+    
+    def __call__(self, item): return {k: self.to_byte_tensor(v) for k, v in item.items()}
+
+
+class ToFloatTensor(Transform):
+    _order=30
+    def to_float_tensor(self, item): return item.float().div_(255.)
+    
+    def __call__(self, item): return {k: self.to_float_tensor(v) for k, v in item.items()}
+    
+class Normalize(Transform):
+    _order=40
+    def __init__(self, stats, p=None):
+        self.mean = torch.as_tensor(stats[0] , dtype=torch.float32)
+        self.std = torch.as_tensor(stats[1] , dtype=torch.float32)
+        self.p = p
+    
+    def normalize(self, item): return item.sub_(self.mean[:, None, None]).div_(self.std[:, None, None])
+    def pad(self, item): return nn.functional.pad(item[None], pad=(self.p,self.p,self.p,self.p), mode='replicate').squeeze(0)
+    
+    def __call__(self, item): 
+        if self.p is not None: return {k: self.pad(self.normalize(v)) for k, v in item.items()}
+        else: return {k: self.normalize(v) for k, v in item.items()}
+
+class DeProcess(Transform):
+    _order=50
+    def __init__(self, stats, size=None, p=None):
+        self.mean = torch.as_tensor(stats[0] , dtype=torch.float32)
+        self.std = torch.as_tensor(stats[1] , dtype=torch.float32)
+        self.size = size
+        self.p = p
+    
+    def de_normalize(self, item): return ((item*self.std[:, None, None]+self.mean[:, None, None])*255.).clamp(0, 255)
+    def rearrange_axis(self, item): return np.moveaxis(item, 0, -1)
+    def to_np(self, item): return np.uint8(np.array(item))
+    def crop(self, item): return item[self.p:self.p+self.size,self.p:self.p+self.size,:]
+    def de_process(self, item): 
+        if self.size is not None and self.p is not None:
+            return self.crop(self.rearrange_axis(self.to_np(self.de_normalize(item))))
+        else:
+            return self.rearrange_axis(self.to_np(self.de_normalize(item)))
+                
+    def __call__(self, item): 
+        if isinstance(item, torch.Tensor): return self.de_process(item) 
+        if isinstance(item, tuple): return tuple([self.de_process(v) for v in item])
+        if isinstance(item, dict): return {k: self.de_process(v) for k, v in item.items()}
+
+#################################################
+# SAGEMAKER INFERENCE FUNCTIONS
+#################################################
+
 def model_fn(model_dir):
     device = torch.device("cpu")
     model = TransformerNet()
@@ -114,10 +202,25 @@ def model_fn(model_dir):
     return model.to(device)
 
 def input_fn(request_body, request_content_type):
-    pass
+    img = PIL.Image.open(io.BytesIO(request_body))
+    item = {'input': img}
+
+    rgb = MakeRGB()
+    resized = ResizeFixed(size)
+    tobyte = ToByteTensor()
+    tofloat = ToFloatTensor()
+    norm = Normalize(imagenet_stats, padding)
+    tmfs = [rgb, resized, tobyte, tofloat, norm]
+    item = compose(item, tmfs)
+    
+    return item['input']
 
 def predict_fn(input_object, model):
-    pass
+    device = torch.device("cpu")
+    out = model(input_object[None].to(device))
+    return out[0].detach()
 
 def output_fn(prediction, content_type):
-    pass
+    denorm = DeProcess(imagenet_stats, size, p)
+    pred = denorm(prediction)
+    return bytearray(pred)
