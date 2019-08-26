@@ -221,6 +221,6 @@ def predict_fn(input_object, model):
     return out[0].detach()
 
 def output_fn(prediction, content_type):
-    denorm = DeProcess(imagenet_stats, size, p)
+    denorm = DeProcess(imagenet_stats, size, padding)
     pred = denorm(prediction)
-    return bytearray(pred)
+    return pred #bytearray(pred)

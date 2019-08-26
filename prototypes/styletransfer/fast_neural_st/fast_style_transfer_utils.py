@@ -641,7 +641,12 @@ class FastStyleTransfer():
                 ax.axis('off')
         plt.subplots_adjust(wspace=0.01, hspace=0.01)
         plt.show()
-    
+                
+    def save_model(self, name="model.pth"):
+        self.model.eval()
+        save_model_filename = name
+        torch.save(self.model.state_dict(), save_model_filename)
+                
     def train(self, num_epochs=1, plot=False, save=False, verbose=True):
         if not self.hooks_initialized: self.initialize_hooks()
         self.metrics =  defaultdict(lambda: defaultdict(list))
@@ -659,13 +664,6 @@ class FastStyleTransfer():
                                 print("LR", param_group['lr'])
                     
                     self.model.train() 
-                if save:
-                    self.model.eval()
-                    save_model_filename = ["epoch", str(epoch),  
-                                           str(time.ctime()).replace(' ', '_'), 
-                                           str(self.content_weight),
-                                           str(self.style_weight) + ".model"]
-                    torch.save(self.model.state_dict(), '_'.join(save_model_filename))
 
                 if self.style_act is not None: self.style_act = None
                 progress = tqdm(enumerate(self.dl[phase]), desc="Loss: ", total=len(self.dl[phase]))
@@ -710,8 +708,3 @@ class FastStyleTransfer():
         self.close_hooks()
         self.training_done = True
         return
-   
-#device = torch.device('cpu')
-#model = TheModelClass(*args, **kwargs)
-#model.load_state_dict(torch.load(PATH, map_location=device))
-#https://pytorch.org/tutorials/beginner/saving_loading_models.html
