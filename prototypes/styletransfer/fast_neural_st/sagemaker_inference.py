@@ -12,10 +12,17 @@ from random import shuffle
 import torch.nn as nn
 import torch.optim as optim
 import io
+import logging
+import json
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 imagenet_stats = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 size = 300
 padding = 30
+JSON_CONTENT_TYPE = 'application/json'
+JPEG_CONTENT_TYPE = 'image/jpeg'
 
 #################################################
 # NETWORK
@@ -169,21 +176,19 @@ class Normalize(Transform):
 
 class DeProcess(Transform):
     _order=50
-    def __init__(self, stats, size=None, p=None):
+    def __init__(self, stats, size=None, p=None, ori=None):
         self.mean = torch.as_tensor(stats[0] , dtype=torch.float32)
         self.std = torch.as_tensor(stats[1] , dtype=torch.float32)
         self.size = size
         self.p = p
+        self.ori = ori
     
     def de_normalize(self, item): return ((item*self.std[:, None, None]+self.mean[:, None, None])*255.).clamp(0, 255)
     def rearrange_axis(self, item): return np.moveaxis(item, 0, -1)
     def to_np(self, item): return np.uint8(np.array(item))
     def crop(self, item): return item[self.p:self.p+self.size,self.p:self.p+self.size,:]
     def de_process(self, item): 
-        if self.size is not None and self.p is not None:
-            return self.crop(self.rearrange_axis(self.to_np(self.de_normalize(item))))
-        else:
-            return self.rearrange_axis(self.to_np(self.de_normalize(item)))
+        return PIL.Image.fromarray(self.crop(self.rearrange_axis(self.to_np(self.de_normalize(item))))).resize(self.ori, PIL.Image.BICUBIC)
                 
     def __call__(self, item): 
         if isinstance(item, torch.Tensor): return self.de_process(item) 
@@ -195,13 +200,14 @@ class DeProcess(Transform):
 #################################################
 
 def model_fn(model_dir):
+    logger.info('model_fn')
     device = torch.device("cpu")
     model = TransformerNet()
     with open(os.path.join(model_dir, 'model.pth'), 'rb') as f:
-        model.load_state_dict(torch.load(f))
+        model.load_state_dict(torch.load(f, map_location=device))
     return model.to(device)
 
-def input_fn(request_body, request_content_type):
+def input_fn(request_body, content_type=JPEG_CONTENT_TYPE):
     img = PIL.Image.open(io.BytesIO(request_body))
     item = {'input': img}
 
@@ -213,14 +219,19 @@ def input_fn(request_body, request_content_type):
     tmfs = [rgb, resized, tobyte, tofloat, norm]
     item = compose(item, tmfs)
     
-    return item['input']
+    return {'img': item['input'], 'size': img.size}
 
 def predict_fn(input_object, model):
+    img = input_object['img']
     device = torch.device("cpu")
-    out = model(input_object[None].to(device))
-    return out[0].detach()
+    out = model(img[None].to(device))
+    input_object['img'] = out[0].detach() 
+    return input_object
 
-def output_fn(prediction, content_type):
-    denorm = DeProcess(imagenet_stats, size, padding)
-    pred = denorm(prediction)
-    return pred #bytearray(pred)
+def output_fn(prediction, content_type=JSON_CONTENT_TYPE):
+    p = prediction['img']
+    original_size = prediction['size']
+    denorm = DeProcess(imagenet_stats, size, padding, original_size)
+    pred = denorm(p)
+    if content_type == JSON_CONTENT_TYPE: return json.dumps({'prediction': np.array(pred).tolist()})
+    
