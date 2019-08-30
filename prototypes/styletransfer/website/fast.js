@@ -27,7 +27,13 @@ document.getElementById("st").onclick = function() {
         dataType: 'json',
         contentType: "application/json",
         success: function (response) {
-            document.getElementById("limit").textContent = response;
+            if (response.includes("not supported yet")){
+                document.getElementById("limit").textContent = response;
+             }
+            else {
+                document.getElementById("iteration_img").src = "data:image/png;base64," + response;
+                document.getElementById("limit").textContent = "Look at this brand new piece of art!";
+            }
           },
     });
 }
