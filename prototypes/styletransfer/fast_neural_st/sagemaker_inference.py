@@ -14,6 +14,7 @@ import torch.optim as optim
 import io
 import logging
 import json
+import base64
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -199,6 +200,28 @@ class DeProcess(Transform):
 # SAGEMAKER INFERENCE FUNCTIONS
 #################################################
 
+def image_to_base64(image):
+    # Make the image the correct format
+    fd = io.BytesIO()
+    # Save the image as PNG
+    image.save(fd, format="PNG")
+    return base64.b64encode(fd.getvalue())
+
+
+def base64_to_image(data: bytes) -> np.ndarray:
+    """Convert an image in base64 to a numpy array"""
+    b64_image = base64.b64decode(data)
+    fd = io.BytesIO(b64_image)
+    img = PIL.Image.open(fd)
+    #img_data = np.array(img).astype("float32")
+
+    #if img_data.shape[-1] == 4:
+    #    # We only support rgb
+    #    img_data = img_data[:, :, :3]
+
+    return img
+
+
 def model_fn(model_dir):
     logger.info('model_fn')
     device = torch.device("cpu")
@@ -233,5 +256,5 @@ def output_fn(prediction, content_type=JSON_CONTENT_TYPE):
     original_size = prediction['size']
     denorm = DeProcess(imagenet_stats, size, padding, original_size)
     pred = denorm(p)
-    if content_type == JSON_CONTENT_TYPE: return json.dumps({'prediction': np.array(pred).tolist()})
+    if content_type == JSON_CONTENT_TYPE: return json.dumps({'prediction': image_to_base64(pred).decode()})
     
