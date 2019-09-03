@@ -110,7 +110,7 @@ def test_losses(model, dl):
     fst.input_act = input_act
     fst.content_act = content_act
     fst.style_act = style_act
-    fst.inputs = i
+    fst.outputs = fst.model(i)
     loss, content, style, tv = fst.combined_loss()
     assert isinstance(st_loss, torch.Tensor)
     fst.close_hooks()
@@ -180,7 +180,7 @@ def build_style_dataframe(path, style):
     
     df.to_csv(path/f'{style[:-4]}.csv', index=False)
             
-def calc_loss_ratios(model, path, tmfs, size, bs, vgg):
+def calc_loss_ratios(model, path, tmfs, size, bs, vgg, tv_weight=None):
     c2s = []
     c2t = []
     for _ in range(3):
@@ -189,13 +189,14 @@ def calc_loss_ratios(model, path, tmfs, size, bs, vgg):
         dataloaders = {'train': DataLoader(train_ds, batch_size=bs, shuffle=True),
                        'valid': DataLoader(valid_ds, batch_size=bs)}
         fst = FastStyleTransfer(dataloaders, *get_model_opt(model), size=size,
-                                c2s=1, c2t=1, tv_weight=1, content_weight=1, style_weight=1, vgg=vgg)
+                                c2s=1, c2t=1, tv_weight=tv_weight, content_weight=1, style_weight=1, vgg=vgg)
         fst.train(verbose=False)
         d = fst.get_metrics('train')
-        c2s.append(d['content'].mean()/d['style'].mean())
-        c2t.append(d['content'].mean()/d['tv'].mean())
+        c2s.append(d['content'].mean()/d['style'].mean())        
+        if tv_weight is not None: c2t.append(d['content'].mean()/d['tv'].mean())
     
-    return np.array(c2s).mean(), np.array(c2t).mean()
+    if tv_weight is not None: return np.array(c2s).mean(), np.array(c2t).mean()
+    return np.array(c2s).mean(), 1.0
 
 def get_model_opt(model, sched=None):
     unet = model
@@ -562,8 +563,8 @@ class FastStyleTransfer():
     def gram_mse_loss(self, input, target): return self.mseloss(gram(input), gram(target))
 
     def tv_loss(self):
-        l = (torch.sum(torch.abs(self.inputs[:, :, :, :-1] - self.inputs[:, :, :, 1:])) + 
-             torch.sum(torch.abs(self.inputs[:, :, :-1, :] - self.inputs[:, :, 1:, :])))
+        l = (torch.sum(torch.abs(self.outputs[:, :, :, :-1] - self.outputs[:, :, :, 1:])) + 
+             torch.sum(torch.abs(self.outputs[:, :, :-1, :] - self.outputs[:, :, 1:, :])))
         return l
     
     def combined_loss(self):
@@ -684,8 +685,8 @@ class FastStyleTransfer():
                     self.opt.zero_grad()
 
                     with torch.set_grad_enabled(phase == 'train'):
-                        outputs = self.model(self.inputs)
-                        self.vgg(outputs)
+                        self.outputs = self.model(self.inputs)
+                        self.vgg(self.outputs)
                         self.input_act = [o.features.clone().to(self.device) for o in self.act]
                 
                         self.loss, self.content_loss, self.style_loss, self.tv = self.combined_loss()
