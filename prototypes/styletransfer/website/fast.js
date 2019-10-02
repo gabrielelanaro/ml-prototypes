@@ -27,8 +27,9 @@ document.getElementById("st").onclick = function() {
         dataType: 'json',
         contentType: "application/json",
         success: function (response) {
-            if (response.includes("not supported yet")){
+            if (response.includes("Sorry")){
                 document.getElementById("limit").textContent = response;
+                return
              }
             else {
                 document.getElementById("iteration_img").src = "data:image/png;base64," + response;
