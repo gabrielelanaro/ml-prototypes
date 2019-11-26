@@ -29,6 +29,7 @@ function processResponse(response){
 }
 
 function addResponse(msg) {
+    document.getElementById("results").textContent = ""
     var para = document.createElement("div");
     var s = "<div class='center' id='gpt2'> <b> Here what GPT-2 has to say... </b> </br></br>"
     i = 1
@@ -38,7 +39,7 @@ function addResponse(msg) {
         i = i + 1
     }
     para.innerHTML = s + "</div>";
-    document.body.appendChild(para);
+    document.getElementById('append').appendChild(para);
   }
 
 button.addEventListener('click', function() {
@@ -84,6 +85,7 @@ button.addEventListener('click', function() {
 
     element = document.getElementById('gpt2') 
     if(element!=null){element.parentNode.removeChild(element)}
+    document.getElementById("results").textContent = "Hold on, checking if we got some deep writers around..."
 
     $.ajax({
         url: API_ENDPOINT,
@@ -103,6 +105,13 @@ button.addEventListener('click', function() {
                 if (this.tryCount <= this.retryLimit) {
                     //try again
                     $.ajax(this);
+                    if (this.tryCount==1){document.getElementById("results").textContent = "Found them! Stretching their fingers..."}
+                    if (this.tryCount==2){document.getElementById("results").textContent = "Finding inspiration..."}
+                    if (this.tryCount==3){document.getElementById("results").textContent = "It is hard to come up with something cool..."}
+                    if (this.tryCount==4){document.getElementById("results").textContent = "Don't give up! We are almost there..."}
+                    if (this.tryCount==5){document.getElementById("results").textContent = "Ok, I admit they are being slow..."}
+                    if (this.tryCount==6){document.getElementById("results").textContent = "I hear some typing!"}
+                    if (this.tryCount>=7){document.getElementById("results").textContent = "Still nothing?"}
                     return;
                 }
                 document.getElementById("results").textContent = "Ouch... Sorry, it seems we ran out of deep neural writers! Can you try again in a couple of minutes?";            
