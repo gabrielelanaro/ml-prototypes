@@ -1,5 +1,5 @@
 var API_ENDPOINT = "https:50vllx1cci.execute-api.eu-west-1.amazonaws.com/prod"
-var prompt = document.getElementById('hugging-prompt');
+var prompt_ = document.getElementById('hugging-prompt');
 var samples = document.getElementById('how-many-samples');
 var words = document.getElementById('how-many-words');
 var temperature = document.getElementById('temperature');
@@ -8,7 +8,8 @@ var topn = document.getElementById('top-n');
 var button = document.getElementById('hugging');
 
 function truncatePrompt(prompt){
-    prompt = prompt.value.substring(0,100)
+    prompt = prompt.value + " "
+    prompt = prompt.substring(0,100)
     index = prompt.lastIndexOf(" ")
     return prompt.substring(0, index)
 }
@@ -19,12 +20,26 @@ function validate(str, min, max) {
   }
 
 function processResponse(response){
-    console.log("Ok!!!!")
-    console.log(response)
-    button.disabled = false;
+    msg = JSON.parse(response)
+    console.log(msg)
+    addResponse(msg)
+    button.disabled = !button.disabled;
     button.style.backgroundColor = "#FF9900"
     button.textContent = "Let the machine take over!"
 }
+
+function addResponse(msg) {
+    var para = document.createElement("div");
+    var s = "<div class='center' id='gpt2'> <b> Here what GPT-2 has to say... </b> </br></br>"
+    i = 1
+    for (var key in msg){
+        var value = msg[key];
+        s = s + i + ") " + prompt + " <b>" + value + "</b> </br></br>"
+        i = i + 1
+    }
+    para.innerHTML = s + "</div>";
+    document.body.appendChild(para);
+  }
 
 button.addEventListener('click', function() {
 
@@ -48,12 +63,12 @@ button.addEventListener('click', function() {
         alert("You can select between 1 and 1000 top N words. You have typed ".concat(topn.value, "!"));
         return false;
     }
-    if(prompt.value.length==0){
+    if(prompt_.value.length==0){
         alert("Your text prompt is empty! Please trigger the model with at least one word.");
         return false
     }
 
-    prompt = truncatePrompt(prompt)
+    prompt = truncatePrompt(prompt_)
     var inputData = {"prompt": prompt,
                     "samples": samples.value,
                     "words": words.value,
@@ -63,15 +78,19 @@ button.addEventListener('click', function() {
                 }
 
     console.log(inputData)
-    this.disabled = true;
+    button.disabled = true;
     button.style.backgroundColor = "#ffc477"
     button.textContent = "Running"
+
+    element = document.getElementById('gpt2') 
+    if(element!=null){element.parentNode.removeChild(element)}
+
     $.ajax({
         url: API_ENDPOINT,
         type: 'POST',
         crossDomain: true,
         tryCount : 0,
-        retryLimit : 3,
+        retryLimit : 15,
         dataType: 'json',
         contentType: "application/json",
         data: JSON.stringify(inputData),
@@ -86,7 +105,7 @@ button.addEventListener('click', function() {
                     $.ajax(this);
                     return;
                 }
-                document.getElementById("results").textContent = "Ouch... Sorry, it seems we ran out of artistic GPUs! Can you try again in a couple of minutes?";            
+                document.getElementById("results").textContent = "Ouch... Sorry, it seems we ran out of deep neural writers! Can you try again in a couple of minutes?";            
                 return;
             }
             

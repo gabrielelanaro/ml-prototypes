@@ -22,8 +22,8 @@
 </div>
 </br>
 <div class="center">
-    <b>How do you want to start?</b></br>
-    <textarea rows="3" cols="50" id="hugging-prompt" maxlength="100" required>(Max 100 characters) Hi, I am Francesco. I am a Data Scientist in Luxembourg, I love travelling and I think that</textarea></br>
+    <b>How do you want to start (max 100 chars)?</b></br>
+    <textarea rows="3" cols="50" id="hugging-prompt" maxlength="100" required>Hi, I am Francesco. I come from Rome and I am a Data Scientist</textarea></br>
     </br>
     <b>How many text samples do you want the model </br> to generate starting from your prompt?</b></br>
     Between 1 and 4: <input type="number" name="quantity" id="how-many-samples" min="1" max="4" value="1"></br>
@@ -34,21 +34,22 @@
     <b>How much creative do you want the model to be (<a href="https://cs.stackexchange.com/questions/79241/what-is-temperature-in-lstm-and-neural-networks-generally">temperature</a>)?</b></br>
     0: conservative model, picks the word with the highest probability. </br>
     1: more creative model, picks random word across top probable ones. </br>
-     Between 0 and 1: <input type="number" name="quantity" id="temperature" min="0" max="1" value="0.5" step="0.1"></br>
+     Between 0 and 1: <input type="number" name="quantity" id="temperature" min="0" max="1" value="1" step="0.1"></br>
     </br>
     <b>When predicting the next word choose from the top N words with a cumulative probability of...</b></br>
-    <a href="https://arxiv.org/abs/1904.09751">Nucleus filtering</a> with probability between 0 and 1: <input type="number" name="quantity" id="nucleus" min="0" max="1" value="0.5" step="0.1"></br>
+    <a href="https://arxiv.org/abs/1904.09751">Nucleus filtering</a> with probability between 0 and 1: <input type="number" name="quantity" id="nucleus" min="0" max="1" value="0.9" step="0.1"></br>
     </br>
     <b>When predicting the next word choose from the top N most likely words where N is...</b></br>
     Between 0 and 1000: <input type="number" name="quantity" id="top-n" min="0" max="1000" value="0">
 </div>
     </br>
-    </br>
-    <div class="center-page">
+<div class="center-page">
     <button id="hugging" class="buttons">Let the machine take over!</button>
+    </br>
     </br>
     <span id="results"></span>
 </div>
+</br>
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="hugging.js"></script>
 </body>
