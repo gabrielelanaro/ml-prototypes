@@ -71,11 +71,11 @@ button.addEventListener('click', function() {
 
     prompt = truncatePrompt(prompt_)
     var inputData = {"prompt": prompt,
-                    "samples": samples.value,
-                    "words": words.value,
+                    "num_samples": samples.value,
+                    "length": words.value,
                     "temperature": temperature.value,
-                    "nucleus": nucleus.value,
-                    "topn": topn.value
+                    "top_p": nucleus.value,
+                    "top_k": topn.value
                 }
 
     console.log(inputData)
