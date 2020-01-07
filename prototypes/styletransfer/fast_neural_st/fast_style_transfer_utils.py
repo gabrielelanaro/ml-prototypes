@@ -3,6 +3,7 @@ import os, mimetypes
 import sys
 import torch
 import pandas as pd
+import math
 from collections import defaultdict
 import PIL
 import random
@@ -39,12 +40,12 @@ def test_data(dl, ds, bs, size, p=0):
     assert abs(len(ds['train'])/bs - len(dl['train'])) < 2
     assert abs(len(ds['valid'])/bs - len(dl['valid'])) < 2
     
-    i,c,s = next(iter(dl['train']))
+    i,c = next(iter(dl['train']))
     assert i.shape[0] == bs
     assert i.shape[1] == 3
     assert i.shape[2] == i.shape[3] == (size+p*2) 
 
-    i,c,s = next(iter(dl['valid']))
+    i,c = next(iter(dl['valid']))
     assert i.shape[0] == bs
     assert i.shape[1] == 3
     assert i.shape[2] == i.shape[3] == (size+p*2) 
@@ -53,19 +54,20 @@ def test_deprocess(ds_item, size, p):
     denorm = DeProcess(imagenet_stats, size, p)
     d = denorm(ds_item)
     print('shape of re-center-cropped image:', d[0].shape)
-    return PIL.Image.fromarray(d[random.choice([0,1,2])])    
+    return PIL.Image.fromarray(d[random.choice([0,1])])    
 
-def test_hooks(model, dl, bs):
+def test_hooks(model, dl, bs, s):
     fst = FastStyleTransfer(dl, *get_model_opt(model))
-    assert fst.hooks_initialized == True
+    assert fst.hooks_initialized == False
     d = random.choice(['train', 'valid'])
-    i, c, s = next(iter(fst.dl[d]))
+    i, c = next(iter(fst.dl[d]))
     i = i.to(fst.device)
     c = c.to(fst.device)
     s = s.to(fst.device)
     assert torch.allclose(i, c) == True
     assert torch.allclose(i, s) == False
-
+    
+    fst.initialize_hooks()
     fst.vgg(i)
     input_act = [o.features.clone().detach_().to(fst.device) for o in fst.act]
     fst.vgg(c)
@@ -80,17 +82,18 @@ def test_hooks(model, dl, bs):
     fst.close_hooks()
     assert fst.hooks_initialized == False
         
-def test_losses(model, dl):
+def test_losses(model, dl, s):
     fst = FastStyleTransfer(dl, *get_model_opt(model))
-    assert fst.hooks_initialized == True
+    assert fst.hooks_initialized == False
     d = random.choice(['train', 'valid'])
-    i, c, s = next(iter(fst.dl[d]))
+    i, c = next(iter(fst.dl[d]))
     i = i.to(fst.device)
     c = c.to(fst.device)
     s = s.to(fst.device)
     #assert torch.allclose(i, c)
     assert torch.allclose(i, s) == False
 
+    fst.initialize_hooks()
     fst.vgg(i)
     input_act = [o.features.clone().detach_().to(fst.device) for o in fst.act]
     print('shape of input_act: ', [o.shape for o in input_act])
@@ -157,40 +160,34 @@ def gram(input):
     x = input.view(b*c, -1)
     return torch.mm(x, x.t())/input.numel() #*1e6
                     
-def build_style_dataframe(path, style):
+def build_style_dataframe(style):
     content_path = path/'coco-images'/'test2015'
     image_extensions = set(k for k,v in mimetypes.types_map.items() if v.startswith('image/'))
     files = get_files(content_path, image_extensions, recurse=True)
     assert len(files) == 81434
-    
-    style_path = path/'styles'/style
-    contents = files
-    styles = [style_path] * len(contents)
-    assert len(styles) == 81434
-    
-    te_ = int(len(styles) * 0.001)
-    tr_ = len(styles) - te_
-    assert(len(styles) == (te_+tr_))
+        
+    te_ = int(len(files) * 0.01)
+    tr_ = len(files) - te_
+    assert(len(files) == (te_+tr_))
     print(f'Files in validation set: {te_}; Files in training set {tr_}')
     splits = ['valid'] * te_ + ['train'] * tr_ 
     shuffle(splits)
     
-    df = pd.DataFrame({'content_': contents, 'style_': styles, 'split_': splits})
+    df = pd.DataFrame({'content_': files, 'split_': splits})
     assert len(df) == 81434
     
     df.to_csv(path/f'{style[:-4]}.csv', index=False)
             
-def calc_loss_ratios(model, path, tmfs, size, bs, vgg, tv_weight=None):
+def calc_loss_ratios(model, path, tmfs, size, bs, vgg, style, tv_weight=None):
     c2s = []
     c2t = []
     for _ in range(3):
-        train_ds = StyleTransferDataset(path, train_test='train', transform=tmfs, sample=0.01)
-        valid_ds = StyleTransferDataset(path, train_test='valid', transform=tmfs, sample=0.5)
+        train_ds = StyleTransferDataset(path, train_test='train', transform=tmfs, sample=0.01, bs=bs)
+        valid_ds = StyleTransferDataset(path, train_test='valid', transform=tmfs, sample=0.1, bs=bs)
         dataloaders = {'train': DataLoader(train_ds, batch_size=bs, shuffle=True),
                        'valid': DataLoader(valid_ds, batch_size=bs)}
-        fst = FastStyleTransfer(dataloaders, *get_model_opt(model), size=size,
-                                c2s=1, c2t=1, tv_weight=tv_weight, content_weight=1, style_weight=1, vgg=vgg)
-        fst.train(verbose=False)
+        fst = FastStyleTransfer(dataloaders, *get_model_opt(model), size=size, vgg=vgg, tv_weight=tv_weight)
+        fst.train(style, verbose=False)
         d = fst.get_metrics('train')
         c2s.append(d['content'].mean()/d['style'].mean())        
         if tv_weight is not None: c2t.append(d['content'].mean()/d['tv'].mean())
@@ -198,25 +195,40 @@ def calc_loss_ratios(model, path, tmfs, size, bs, vgg, tv_weight=None):
     if tv_weight is not None: return np.array(c2s).mean(), np.array(c2t).mean()
     return np.array(c2s).mean(), 1.0
 
-def get_model_opt(model, sched=None):
-    unet = model
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, unet.parameters()), lr=1e-3)
-    if sched: sched = lr_scheduler.CosineAnnealingLR(optimizer, 50)
-    return [unet, optimizer, sched]                
+def annealing_linear(start, end, pct):
+    "Linearly anneal from `start` to `end` as pct goes from 0.0 to 1.0."
+    return start + pct * (end-start)
+
+def annealing_cos(start, end, pct):
+    "Cosine anneal from `start` to `end` as pct goes from 0.0 to 1.0."
+    cos_out = np.cos(np.pi * pct) + 1
+    return end + (start-end)/2 * cos_out                
                 
 #################################################
 # DATASETS & DATALOADERS
 #################################################
 
+def pre_process_style(style, transform, bs):
+    style_path = path/'styles'/style
+    style_img = PIL.Image.open(style_path)
+    
+    item = {'style': style_img}
+    item = compose(item, transform)
+    
+    return(item['style'][None].repeat(bs, 1, 1, 1))
+
 class StyleTransferDataset(Dataset):
     """Style Transfer dataset."""
 
-    def __init__(self, csv_file, train_test, transform=None, sample=None):
+    def __init__(self, csv_file, train_test, bs, transform=None, sample=None):
         data = pd.read_csv(csv_file)
         if sample: data = data.sample(int(len(data)*sample))
         self.train_test = train_test
-        data.loc[:,['content_', 'style_']] = data.loc[:,['content_', 'style_']].applymap(lambda x: Path(x))
-        self.data = data.loc[data.split_==train_test,:].reset_index(drop=True)
+        data.loc[:,['content_']] = data.loc[:,['content_']].applymap(lambda x: Path(x))
+        data = data.loc[data.split_==train_test,:].reset_index(drop=True)
+        f = len(data)//bs
+        data = data[:(f*bs)]
+        self.data = data
         self.transform = transform
 
     def __len__(self):
@@ -227,7 +239,7 @@ class StyleTransferDataset(Dataset):
         
         _1 = f'{self.train_test.capitalize()} dataset: {len(self.data)} items\n'
         _2 = f'Item: {type(item)} of {len(item)} {type(item[0])}\n'
-        _3 = f"Item example: 'input':{ item[0].shape},'content':{item[1].shape},'style':{item[2].shape}"
+        _3 = f"Item example: 'input':{ item[0].shape},'content':{item[1].shape}"
 
         return _1+_2+_3
     
@@ -238,22 +250,11 @@ class StyleTransferDataset(Dataset):
         content_img = self.data.content_.iloc[idx]
         content_img = PIL.Image.open(content_img)
         
-        style_img = self.data.style_.iloc[idx]
-        style_img = PIL.Image.open(style_img)
-        
-        #opt_img = np.random.uniform(0, 1, size=(content_img.size + (3,))).astype(np.float32)
-        #opt_img = ndimage.filters.median_filter(opt_img, [8,8,1])
-        #item = {'input': PIL.Image.fromarray(np.uint8(opt_img*255)),
-        #        'content': content_img, 
-        #        'style': style_img}
-        
-        item = {'content': content_img, 
-                'style': style_img}
-
+        item = {'content': content_img}
         
         if self.transform: item = compose(item, self.transform)
 
-        return item['content'], item['content'], item['style']
+        return item['content'], item['content']
     
 def compose(x, funcs, *args, order_key='_order', **kwargs):
     key = lambda o: getattr(o, order_key, 0)
@@ -418,7 +419,7 @@ class ResNetUNet(nn.Module):
 #################################################
 # TRANSFORMER NET
 #################################################
-
+                
 class TransformerNet(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -517,36 +518,53 @@ class UpsampleConvLayer(torch.nn.Module):
 # FAST STYLE TRANSFER CLASS
 #################################################
 
+def get_model_opt(model, lr=1e-3):
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=0.01)
+    return [model, optimizer]                                                
+                
 class FastStyleTransfer():
-    def __init__(self, dl, model, opt, sched=None, c2s=1.0, c2t=1.0,
+    def __init__(self, dl, model, opt, c2s=1.0, c2t=1.0,
                  style_weight=1.0, content_weight=1.0, 
-                 tv_weight=1.0, size=256, p=30, vgg=16):
+                 tv_weight=None, size=128, p=None, vgg=16,
+                 convs=[1, 11, 18, 25, 20]):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.mseloss = nn.MSELoss()
         self.init_vgg(vgg)
-        self.convs = [i-2 for i,o in enumerate(list(self.vgg.features)) if isinstance(o,nn.MaxPool2d)]
+        self.convs = convs if convs is not None else [i-2 for i,o in enumerate(list(self.vgg.features)) if isinstance(o,nn.MaxPool2d)]
         self.model = model.to(self.device)
-        self.original_model = model.to(self.device)
+        self.original_model = copy.deepcopy(model.to(self.device))
         self.opt = opt
-        self.sched = sched
+        self.original_opt = copy.deepcopy(opt)      
         self.content_weight = content_weight
         self.style_weight = style_weight
         self.tv_weight = tv_weight
         self.dl = dl
-        self.initialize_hooks()
+        self.hooks_initialized = False
         self.style_act = None
         self.training_done = False
         self.size = size
         self.p = p
         self.c2s = c2s
         self.c2t = c2t
+        self.lr_max = self.opt.param_groups[0]['lr']
         
+    def get_arch(self):
+        idx = []
+        layers = []
+        for i, layer in enumerate(self.vgg.features):
+            idx.append(i)
+            layers.append(layer)
+            
+        self.arch = pd.DataFrame({'i': idx, 'layer': layers})
+    
     def init_vgg(self, vgg):
         if vgg==16: self.vgg = models.vgg16(pretrained=True).to(self.device)
         if vgg==19: self.vgg = models.vgg19(pretrained=True).to(self.device)
         self.vgg.eval()
+        self.get_arch()
     
-    def reinitialize_unet(self): self.model = copy.deepcopy(self.original_model)
+    def reinitialize_unet(self): self.model = self.original_model
+    def reinitialize_opt(self): self.opt = self.original_opt
         
     def initialize_hooks(self): 
         self.act = [SaveFeatures(list(self.vgg.features)[idx]) for idx in self.convs]
@@ -568,16 +586,15 @@ class FastStyleTransfer():
         return l
     
     def combined_loss(self):
-        style_losses = [self.gram_mse_loss(o, s) for o,s in zip(self.input_act, self.style_act)]
+        style_losses = [self.gram_mse_loss(o, s) for o,s in zip(self.input_act[:-1], self.style_act[:-1])]
         
         #content_losses = [content_mse(o, s) for o,s in zip(opt_cat, target_cont)]
-        content_losses = [self.content_mse(self.input_act[2], self.content_act[2])]
+        content_losses = [self.content_mse(self.input_act[-1], self.content_act[-1])]
         
         style = sum(style_losses) * self.style_weight * self.c2s
         content = sum(content_losses) * self.content_weight
         loss = content + style
-        if self.tv_weight is None: 
-            tv = None
+        if self.tv_weight is None: tv = None
         else:
             tv = self.tv_loss() * self.tv_weight * self.c2t
             loss += tv
@@ -607,21 +624,24 @@ class FastStyleTransfer():
         if self.tv_weight is not None: df['tv'] = df.tv_loss/df.batch_size
         return df
 
-    def plot_losses(self, phase, group=20, ylim=None):
+    def plot_losses(self, phase, group=20, ylim=None, skip=3):
         df = self.get_metrics(phase)
         df = df.head(len(df)-1)
         df[f'{group}-batch-average'] = df.batch // group
-        y = ['total','content','style']
+        y = ['content','style'] # 'total',
         if self.tv_weight is not None: y += ['tv']
         df = df.groupby(f'{group}-batch-average')[y].sum().reset_index()
-        m = df.total.mean()
-        s = df.total.std()
-        df['outlier'] = np.where(df.total < (m+3*s), False, True)
+        df = df[skip:]
+        #m = df.total.mean()
+        #s = df.total.std()
+        #df['outlier'] = np.where(df.total < (m+3*s), False, True)
         
         x_axis = min(18, int(0.03*len(df)))
         fig, ax = plt.subplots(figsize=(x_axis, 5))
-        df.loc[df.outlier==False,:].plot(ax=ax, x=f'{group}-batch-average', y=y)
+        #df.loc[df.outlier==False,:].plot(ax=ax, x=f'{group}-batch-average', y=y)
+        df.plot(ax=ax, x=f'{group}-batch-average', y=y)
         if ylim is not None: ax.set_ylim(ylim[0], ylim[1])
+        ax.set_ylabel("Loss")
         plt.show()
 
     def run_st(self, tensor):
@@ -630,16 +650,18 @@ class FastStyleTransfer():
     
     def plot_samples(self, phase):
         ds = self.dl[phase].dataset
-        idx = random.sample(range(len(ds)), 3)
+        idx = random.sample(range(len(ds)), 6)
         denorm = DeProcess(imagenet_stats, self.size, self.p)
-        items = [denorm((self.run_st(ds[i][0]), *ds[i][1:])) for i in idx]
+        items = [denorm((self.run_st(ds[i][0]), ds[i][0])) for i in idx]
 
-        fig, axes = plt.subplots(3,3, figsize=(8,8))
+        fig, axes = plt.subplots(3,4, figsize=(8,8))
+        k=0
         for i in range(3):
-            for j in range(3):
+            for j in range(4):
                 ax = axes[i, j]
-                ax.imshow(items[i][j])
+                ax.imshow(items[k][j%2])
                 ax.axis('off')
+                if j%2 == 1: k+=1
         plt.subplots_adjust(wspace=0.01, hspace=0.01)
         plt.show()
                 
@@ -647,41 +669,159 @@ class FastStyleTransfer():
         self.model.eval()
         save_model_filename = name
         torch.save(self.model.state_dict(), save_model_filename)
+    
+    def plot_lr(self, skip_start=10, skip_end=2):
+        print(f"Min numerical gradient @lr: {self.min_grad_lr:.2e}")
+        lrs = self.lrs[skip_start:-skip_end]
+        ax = lrs.plot(x='lr', y='loss', logx=True)
+        ax.set(xlabel="Learning Rate (log scale)", ylabel="Loss")
+        ax.plot(self.min_grad_lr,self.min_grad_loss,markersize=10,marker='o',color='red')
+        plt.show()    
                 
-    def train(self, num_epochs=1, plot=False, save=False, verbose=True):
+    def plot_one_cycle_schedule(self):
+        fig, ax = plt.subplots(1,2,figsize=(14, 4))
+        ax[0].plot(self.iterations, self.lr_schedule)
+        ax[0].set(xlabel="Iterations (epochs * train batches)", ylabel="Learning Rate", title="Learning Rate Schedule")
+        ax[1].plot(self.iterations, self.mom_schedule)
+        ax[1].set(xlabel="Iterations (epochs * train batches)", ylabel="Momentum",  title="Momentum Schedule")
+        plt.show()
+                
+    def find_lr(self, styles, init_value = 1e-8, final_value=10., beta = 0.98, focus_on_style=False):
         if not self.hooks_initialized: self.initialize_hooks()
-        self.metrics =  defaultdict(lambda: defaultdict(list))
+        styles = styles.to(self.device)
+        self.vgg(styles)
+        self.style_act = [o.features.clone().detach_().to(self.device) for o in self.act]
+        if focus_on_style: self.content_act = self.style_act.copy()
+                
+        num = len(self.dl['train'])-1
+        mult = (final_value / init_value) ** (1/num)
+        lr = init_value
+        optimizer = self.opt
+        optimizer.param_groups[0]['lr'] = lr
+        avg_loss = 0.
+        best_loss = 0.
+        batch_num = 0
+        losses = []
+        lrs = []
+                
+        progress = tqdm(enumerate(self.dl['train']), desc="Loss: ", total=len(self.dl['train']))        
+        for i, (inputs, contents) in progress:
+            batch_num += 1
+            #As before, get the loss for this mini-batch of inputs/outputs 
+            self.inputs = inputs.to(self.device)
+            contents = contents.to(self.device)
+            
+            if not focus_on_style:
+                self.vgg(contents)
+                self.content_act = [o.features.clone().detach_().to(self.device) for o in self.act]
+            
+            optimizer.zero_grad()
+            self.outputs = self.model(self.inputs)
+            self.vgg(self.outputs)
+            self.input_act = [o.features.clone().to(self.device) for o in self.act]
+            loss, content_loss, style_loss, tv = self.combined_loss()
+            l = float(loss.cpu().detach().numpy())
+            avg_loss = beta * avg_loss + (1-beta) *l
+            smoothed_loss = avg_loss / (1 - beta**batch_num)
+            #Stop if the loss is exploding
+            if batch_num > 1 and smoothed_loss > 4 * best_loss: break
+            #Record the best loss
+            if smoothed_loss < best_loss or batch_num==1: best_loss = smoothed_loss
+            #Store the values
+            losses.append(smoothed_loss)
+            lrs.append(lr) #math.log10(lr))
+            #Do the SGD step
+            loss.backward()
+            optimizer.step()
+
+            #Update the lr for the next step
+            lr *= mult
+            optimizer.param_groups[0]['lr'] = lr
+
+        self.close_hooks()
+        self.lrs = pd.DataFrame({"lr": lrs, "loss": losses})
+        df = self.lrs[10:-5]
+        losses = df.loss.values
+        mg = np.gradient(losses).argmin()
+        self.min_grad_loss = losses[mg]
+        self.min_grad_lr = df.lr.values[mg]
+        self.plot_lr()
+        self.close_hooks()
+        self.reinitialize_unet()                
+        self.reinitialize_opt()
+                
+        return                
+
+    def calc_lr_mom_schedule(self, tot_epochs, len_train, lr_max, div_factor=25., pct_start=0.3, moms=(0.95, 0.85)):
+        n = len_train * tot_epochs
+        self.iterations = 1+np.arange(n)
+        final_div = div_factor*1e4
+        a1 = int(n * pct_start)
+        a2 = n-a1
+
+        low_lr = lr_max/div_factor
+        final_lr = lr_max/final_div
+
+        linear_lr = []
+        linear_mom = []
+        for i in self.iterations[:a1]:
+            pct=i/a1
+            lr = annealing_linear(low_lr, lr_max, pct)
+            mom = annealing_linear(moms[0], moms[1], pct)
+            linear_lr.append(lr)    
+            linear_mom.append(mom)
+
+        cos_lr = []
+        cos_mom = []
+        for i in self.iterations[a1:]:
+            pct=(i-a1-1)/(a2-1)
+            lr = annealing_cos(lr_max, final_lr, pct)
+            mom = annealing_cos(moms[1], moms[0], pct)
+            cos_lr.append(lr)
+            cos_mom.append(mom)
+
+        self.lr_schedule = np.array(linear_lr+cos_lr)
+        self.mom_schedule = np.array(linear_mom+cos_mom)
         
+        return  
+                
+    def train(self, styles, num_epochs=1, plot=False, save=False, verbose=True, one_cycle=True,
+             div_factor=25., pct_start=0.3, moms=(0.95, 0.85), focus_on_style=False):
+        if not self.hooks_initialized: self.initialize_hooks()
+        if one_cycle: self.calc_lr_mom_schedule(tot_epochs = num_epochs, len_train=len(self.dl['train']), 
+                                                lr_max=self.lr_max, div_factor=div_factor, 
+                                                pct_start=pct_start, moms=moms)
+                
+        self.metrics =  defaultdict(lambda: defaultdict(list))
+        styles = styles.to(self.device)
+        self.vgg(styles)
+        self.style_act = [o.features.clone().detach_().to(self.device) for o in self.act]
+        if focus_on_style: self.content_act = self.style_act.copy()
+        
+        iteration = 0        
         for epoch in tnrange(num_epochs, desc='Epoch'):
             since = time.time()
 
             for phase in ['train', 'valid']:
                 if verbose: print(f'\nPhase: {phase}')
-                if phase == 'train':
-                    if self.sched is not None:
-                        self.sched.step()
-                        if verbose: 
-                            for param_group in self.opt.param_groups: 
-                                print("LR", param_group['lr'])
-                    
-                    self.model.train() 
+                if phase == 'train': self.model.train() 
 
-                if self.style_act is not None: self.style_act = None
                 progress = tqdm(enumerate(self.dl[phase]), desc="Loss: ", total=len(self.dl[phase]))
                 
-                for i, (inputs, contents, styles) in progress:
+                for i, (inputs, contents) in progress:
+                    if one_cycle and phase=='train':
+                        self.opt.param_groups[0]['betas'] = (self.mom_schedule[iteration], 0.999)
+                        self.opt.param_groups[0]['lr'] = self.lr_schedule[iteration]
+                        iteration+=1
+
                     self.inputs = inputs.to(self.device)
                     contents = contents.to(self.device)
-                    styles = styles.to(self.device)
                     if i==0 and verbose==True: print(f'(input, content, style) = {self.inputs.shape}, {contents.shape}, {styles.shape}')
 
-                    self.vgg(contents)
-                    self.content_act = [o.features.clone().detach_().to(self.device) for o in self.act]
-
-                    if self.style_act is None or i == (len(self.dl[phase])-1):
-                        self.vgg(styles)
-                        self.style_act = [o.features.clone().detach_().to(self.device) for o in self.act]
-
+                    if not focus_on_style:
+                        self.vgg(contents)
+                        self.content_act = [o.features.clone().detach_().to(self.device) for o in self.act]
+                
                     self.opt.zero_grad()
 
                     with torch.set_grad_enabled(phase == 'train'):
@@ -695,6 +835,8 @@ class FastStyleTransfer():
                         if phase == 'train':
                             self.loss.backward()
                             self.opt.step()
+                            assert self.opt.param_groups[0]['betas'] == (self.mom_schedule[iteration-1], 0.999) 
+                            assert self.opt.param_groups[0]['lr'] == self.lr_schedule[iteration-1]
                 
                 epoch_loss = self.get_epoch_loss(phase)
                 progress.set_description("Loss: {:.4f}".format(epoch_loss))
