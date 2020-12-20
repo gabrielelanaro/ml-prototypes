@@ -102,6 +102,8 @@ button.addEventListener('click', function() {
             console.log("retry " + this.tryCount + " of " + this.retryLimit)
             if (status == 'error') {
                 this.tryCount++;
+                document.getElementById("results").textContent = "Ouch... Sorry, we have disabled our deep neural writers for the time being!";            
+                return;
                 if (this.tryCount <= this.retryLimit) {
                     //try again
                     $.ajax(this);
