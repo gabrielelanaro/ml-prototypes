@@ -98,12 +98,12 @@ button.addEventListener('click', function() {
         data: JSON.stringify(inputData),
         success: processResponse,
         error: function(xhr, status, error) {
+            document.getElementById("results").textContent = "Ouch... Sorry, we have disabled our deep neural writers for the time being!";            
+            return;
             console.log("AJAX status:" + status)
             console.log("retry " + this.tryCount + " of " + this.retryLimit)
             if (status == 'error') {
                 this.tryCount++;
-                document.getElementById("results").textContent = "Ouch... Sorry, we have disabled our deep neural writers for the time being!";            
-                return;
                 if (this.tryCount <= this.retryLimit) {
                     //try again
                     $.ajax(this);
